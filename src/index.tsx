@@ -16,11 +16,21 @@ const root = ReactDOM.createRoot(document.getElementById('root')!)
 
 function FakeBalanceSync() {
   const balance = useUserStore((state) => state.balance)
-  const fakeAccount = useFakeAccountStore()
 
   React.useEffect(() => {
-    fakeAccount.set(() => ({ balance: Math.max(0, balance || 0) }))
-  }, [balance, fakeAccount])
+    const nextBalance = Math.max(0, balance || 0)
+
+    useFakeAccountStore.setState((state) => {
+      if (state.balance === nextBalance) {
+        return state
+      }
+
+      return {
+        ...state,
+        balance: nextBalance,
+      }
+    })
+  }, [balance])
 
   return null
 }
@@ -34,7 +44,7 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren, { hasErr
   static getDerivedStateFromError(error: Error) {
     return {
       hasError: true,
-      message: error?.message || 'Tətbiq yüklənərkən xəta baş verdi.',
+      message: error?.message || 'TÉ™tbiq yÃ¼klÉ™nÉ™rkÉ™n xÉ™ta baÅŸ verdi.',
     }
   }
 
@@ -58,7 +68,7 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren, { hasErr
           }}
         >
           <div style={{ maxWidth: '420px' }}>
-            <h2 style={{ marginBottom: '12px' }}>Sayt açılarkən problem yarandı</h2>
+            <h2 style={{ marginBottom: '12px' }}>Sayt aÃ§Ä±larkÉ™n problem yarandÄ±</h2>
             <p style={{ margin: 0, color: '#c7c9d4', lineHeight: 1.6 }}>{this.state.message}</p>
           </div>
         </div>
