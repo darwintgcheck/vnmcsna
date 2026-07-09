@@ -45,6 +45,7 @@ const Secondary = styled.button`
 
 export default function DepositModal({ onClose }: { onClose: () => void }) {
   const requestDeposit = useUserStore((state) => state.requestDeposit)
+  const refreshUser = useUserStore((state) => state.refreshUser)
   const config = useUserStore((state) => state.config)
   const [amount, setAmount] = React.useState(100)
   const [busy, setBusy] = React.useState(false)
@@ -56,8 +57,28 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
       setMessage('')
       const response = await requestDeposit(Number(amount))
       if (response.invoiceLink) {
-        openTelegramInvoice(response.invoiceLink)
-        setMessage('Ödəniş pəncərəsi açıldı. Ödəniş tamamlandıqdan sonra balans avtomatik yenilənəcək.')
+        const openedInTelegram = openTelegramInvoice(response.invoiceLink, async (status) => {
+          if (status === 'paid') {
+            await refreshUser()
+            setMessage('Ödəniş tamamlandı. Balans yeniləndi ✅')
+            return
+          }
+
+          if (status === 'cancelled') {
+            setMessage('Ödəniş ləğv edildi.')
+            return
+          }
+
+          if (status && status !== 'opened') {
+            setMessage(`Ödəniş statusu: ${status}`)
+          }
+        })
+
+        setMessage(
+          openedInTelegram
+            ? 'Ödəniş pəncərəsi açıldı. Tamamlanandan sonra balans avtomatik yenilənəcək.'
+            : 'Invoice link yeni pəncərədə açıldı. Ödənişdən sonra səhifəni yeniləyin və ya tətbiqə geri dönün.'
+        )
       } else {
         setMessage(response.message || 'Depozit sorğusu yaradıldı.')
       }
@@ -73,7 +94,7 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
       <Wrap>
         <h1>Deposit ⭐</h1>
         <p>Balans yalnız Telegram Stars ilə artırılır.</p>
-        <Input type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} placeholder="Stars məbləği" />
+        <Input type="number" min={1} step={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} placeholder="Stars məbləği" />
         <Button disabled={busy || amount <= 0} onClick={submit}>
           {busy ? 'Hazırlanır...' : 'Depozit başlat'}
         </Button>
