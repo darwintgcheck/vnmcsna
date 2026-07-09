@@ -15,6 +15,19 @@ export default defineConfig(() => ({
       crypto: 'crypto-browserify',
     },
   },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    // Böyük chunk-lar üçün limit artır (Solana lib-ları çox böyükdür)
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
+  },
   plugins: [
     react({ jsxRuntime: 'classic' }),
   ],
