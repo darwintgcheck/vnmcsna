@@ -1,3 +1,4 @@
+import './bootstrap'
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react'
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui'
 import '@solana/wallet-adapter-react-ui/styles.css'
@@ -24,6 +25,50 @@ function FakeBalanceSync() {
   return null
 }
 
+class AppErrorBoundary extends React.Component<React.PropsWithChildren, { hasError: boolean; message: string }> {
+  constructor(props: React.PropsWithChildren) {
+    super(props)
+    this.state = { hasError: false, message: '' }
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return {
+      hasError: true,
+      message: error?.message || 'Tətbiq yüklənərkən xəta baş verdi.',
+    }
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('App render error:', error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            background: '#0b0b0e',
+            color: '#fff',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ maxWidth: '420px' }}>
+            <h2 style={{ marginBottom: '12px' }}>Sayt açılarkən problem yarandı</h2>
+            <p style={{ margin: 0, color: '#c7c9d4', lineHeight: 1.6 }}>{this.state.message}</p>
+          </div>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
 function Root() {
   return (
     <BrowserRouter>
@@ -40,8 +85,10 @@ function Root() {
                     defaultPool={DEFAULT_POOL}
                     referral={{ fee: PLATFORM_REFERRAL_FEE, prefix: 'code' }}
                   >
-                    <FakeBalanceSync />
-                    <App />
+                    <AppErrorBoundary>
+                      <FakeBalanceSync />
+                      <App />
+                    </AppErrorBoundary>
                   </GambaPlatformProvider>
                 </GambaProvider>
               </SendTransactionProvider>
