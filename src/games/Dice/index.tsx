@@ -101,7 +101,7 @@ export default function Dice() {
               <div>Multiplier</div>
             </div>
             <div>
-              <div>{maxWin.toFixed(2)} ₼</div>
+              <div>{maxWin.toFixed(2)} ⭐</div>
               <div>Payout</div>
             </div>
           </Stats>
