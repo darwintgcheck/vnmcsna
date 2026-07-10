@@ -115,7 +115,8 @@ export default function AuthModal() {
   const [busy, setBusy] = React.useState(false)
 
   const isMiniApp = isTelegramMiniApp()
-  const tgUser = !isMiniApp ? getTelegramUnsafeUser() : null
+  const tgUser = getTelegramUnsafeUser()
+  const [miniAppAttempted, setMiniAppAttempted] = React.useState(false)
 
   React.useEffect(() => {
     if (tgUser?.id) {
@@ -151,20 +152,69 @@ export default function AuthModal() {
     }
   }
 
+  React.useEffect(() => {
+    if (isMiniApp && tgUser?.id && !miniAppAttempted) {
+      setMiniAppAttempted(true)
+      devLogin()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMiniApp, tgUser?.id, miniAppAttempted])
+
   if (isMiniApp) {
+    // Telegram user data found: we're auto-logging in, just show a spinner state.
+    if (tgUser?.id) {
+      return (
+        <Overlay>
+          <Card>
+            <Logo alt="Venom Kazino" src="/logo.svg" />
+            <Title>Venom Kazino</Title>
+            <Text>
+              Telegram hesabınız oxunur, giriş edilir...
+            </Text>
+          </Card>
+        </Overlay>
+      )
+    }
+
+    // Genuinely no Telegram launch data available: offer a retry and a manual fallback
+    // instead of a permanent dead end.
     return (
       <Overlay>
         <Card>
           <Logo alt="Venom Kazino" src="/logo.svg" />
           <Title>Venom Kazino</Title>
           <Text>
-            Telegram hesabınız oxunur. Əgər giriş açılmırsa, mini app-i bot daxilindən yenidən başladın.
+            Telegram hesabınız oxunmadı. Əgər giriş açılmırsa, mini app-i bot daxilindən yenidən başladın.
           </Text>
-          <div style={{ textAlign: 'center', marginTop: '20px' }}>
-            <p style={{ color: '#ff8080', fontSize: '12px' }}>
-              ⚠️ Telegram Mini App ID tapılmadı. Bot admin quraşdırması lazım olacaq.
-            </p>
-          </div>
+          <Button $accent $full onClick={() => window.location.reload()}>
+            🔄 Yenidən cəhd et
+          </Button>
+
+          <Divider>və ya</Divider>
+
+          <Text style={{ fontSize: '12px' }}>
+            Test məqsədi ilə giriş:
+          </Text>
+          <Input
+            value={telegramId}
+            onChange={(e) => setTelegramId(e.target.value)}
+            type="number"
+            placeholder="Telegram ID (rəqəm)"
+          />
+          <Input
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="Adınız"
+          />
+          <Button
+            $accent
+            $full
+            onClick={devLogin}
+            disabled={busy || !telegramId}
+            style={{ marginTop: '14px' }}
+          >
+            {busy ? '⏳ Giriş edilir...' : 'Test girişi'}
+          </Button>
         </Card>
       </Overlay>
     )
