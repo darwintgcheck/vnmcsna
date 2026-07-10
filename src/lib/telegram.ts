@@ -13,7 +13,19 @@ export function getTelegramWebApp() {
 }
 
 export function isTelegramMiniApp() {
-  return Boolean(getTelegramWebApp())
+  const webApp = getTelegramWebApp()
+  if (!webApp) return false
+
+  // telegram-web-app.js is loaded unconditionally via a <script> tag, so it
+  // injects a stub `window.Telegram.WebApp` object even when the page is
+  // opened in a normal browser (e.g. Safari), not inside Telegram itself.
+  // Only trust it as a real Mini App session when it actually carries launch
+  // data (initData) or a known platform, otherwise we get false positives
+  // that break the app for anyone opening the link outside Telegram.
+  const hasInitData = Boolean(webApp.initData)
+  const hasPlatform = Boolean(webApp.platform) && webApp.platform !== 'unknown'
+
+  return hasInitData || hasPlatform
 }
 
 export function getTelegramInitData() {
