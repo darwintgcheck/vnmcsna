@@ -1,40 +1,36 @@
-// Telegram Stars ödəniş hook-u
-// İstifadə: const { payWithStars, isLoading, error } = useTelegramStars()
+import { useState, useCallback } from 'react'
 
-import { useState, useCallback } from 'react';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || ''
 
 interface StarPaymentOptions {
-  title: string;
-  description?: string;
-  payload: string;   // Biznes məntiq üçün: "topup_500", "game_entry_10" və s.
-  amount: number;    // Telegram Stars sayı (1 XTR = 1 Star)
+  title: string
+  description?: string
+  payload: string
+  amount: number
 }
 
 interface UseStarsReturn {
-  payWithStars: (options: StarPaymentOptions) => Promise<boolean>;
-  isLoading: boolean;
-  error: string | null;
+  payWithStars: (options: StarPaymentOptions) => Promise<boolean>
+  isLoading: boolean
+  error: string | null
 }
 
 export function useTelegramStars(): UseStarsReturn {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const payWithStars = useCallback(async (options: StarPaymentOptions): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
+    setIsLoading(true)
+    setError(null)
 
     try {
-      const tg = (window as any).Telegram?.WebApp;
+      const tg = (window as any).Telegram?.WebApp
 
       if (!tg) {
-        setError('Telegram WebApp tapılmadı');
-        return false;
+        setError('Telegram WebApp was not found')
+        return false
       }
 
-      // Backend-dən invoice link al
       const res = await fetch(`${API_BASE}/api/stars/create-invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,34 +40,33 @@ export function useTelegramStars(): UseStarsReturn {
           payload: options.payload,
           amount: options.amount,
         }),
-      });
+      })
 
-      const data = await res.json();
+      const data = await res.json()
 
       if (!data.ok || !data.invoiceLink) {
-        setError(data.error || 'Invoice yaradılmadı');
-        return false;
+        setError(data.error || 'Invoice could not be created')
+        return false
       }
 
-      // Telegram Stars ödəniş pəncərəsini aç
       return new Promise((resolve) => {
         tg.openInvoice(data.invoiceLink, (status: string) => {
-          setIsLoading(false);
+          setIsLoading(false)
           if (status === 'paid') {
-            resolve(true);
+            resolve(true)
           } else {
-            setError(status === 'cancelled' ? 'Ödəniş ləğv edildi' : `Ödəniş uğursuz: ${status}`);
-            resolve(false);
+            setError(status === 'cancelled' ? 'Payment was cancelled' : `Payment failed: ${status}`)
+            resolve(false)
           }
-        });
-      });
+        })
+      })
     } catch (err: any) {
-      setError(err.message || 'Xəta baş verdi');
-      return false;
+      setError(err.message || 'Something went wrong')
+      return false
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  }, []);
+  }, [])
 
-  return { payWithStars, isLoading, error };
+  return { payWithStars, isLoading, error }
 }
