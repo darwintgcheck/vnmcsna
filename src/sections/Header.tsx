@@ -20,6 +20,11 @@ const StyledHeader = styled.header`
   left: 0;
   z-index: 1000;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+  @media (max-width: 720px) {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
 `
 
 const Brand = styled(NavLink)`
@@ -30,6 +35,17 @@ const Brand = styled(NavLink)`
   font-size: 16px;
   text-decoration: none;
   color: #fff;
+  min-width: 0;
+
+  span {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 420px) {
+    span {
+      display: none;
+    }
+  }
 `
 
 const Actions = styled.div`
@@ -38,6 +54,10 @@ const Actions = styled.div`
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+
+  @media (max-width: 720px) {
+    width: 100%;
+  }
 `
 
 const Button = styled.button<{ $accent?: boolean }>`
@@ -50,6 +70,7 @@ const Button = styled.button<{ $accent?: boolean }>`
   background: ${({ $accent }) => ($accent ? 'linear-gradient(90deg, #8c62ff, #5ee7ff)' : 'rgba(255,255,255,0.08)')};
   font-size: 13px;
   transition: all 0.2s;
+  min-height: 40px;
 
   &:hover:not(:disabled) {
     opacity: 0.9;
@@ -68,6 +89,9 @@ const Balance = styled.div`
   font-weight: 700;
   font-size: 13px;
   white-space: nowrap;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
 `
 
 const UserWidget = styled.button`
@@ -80,6 +104,7 @@ const UserWidget = styled.button`
   border-radius: 16px;
   padding: 6px 10px 6px 6px;
   cursor: pointer;
+  min-width: 0;
 `
 
 const UserText = styled.div`
@@ -87,6 +112,7 @@ const UserText = styled.div`
   gap: 2px;
   text-align: left;
   line-height: 1.1;
+  min-width: 0;
 `
 
 const UserName = styled.div`
@@ -122,12 +148,12 @@ export default function Header({ openDeposit, openWithdraw }: { openDeposit?: ()
         </Brand>
 
         <Actions>
-          <Balance>💰 {realBalance} ⭐</Balance>
+          <Balance>⭐ {realBalance}</Balance>
 
           {user ? (
             <>
               <Button onClick={openWithdraw}>Çıxarış</Button>
-              <Button $accent onClick={openDeposit}>Deposit</Button>
+              <Button $accent onClick={openDeposit}>Depozit</Button>
               <UserWidget onClick={() => setProfileOpen(true)} title="Profil">
                 <UserAvatar name={user.displayName} photoUrl={user.photoUrl} size={36} />
                 <UserText>
