@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { SITE_NAME } from '../constants'
 import { getTelegramUnsafeUser, isTelegramMiniApp } from '../lib/telegram'
 
 const Overlay = styled.div`
@@ -69,8 +70,8 @@ export default function AuthModal() {
       return (
         <Overlay>
           <Card>
-            <Logo alt="Venom Kazino" src="/logo.svg" />
-            <Title>Venom Kazino</Title>
+            <Logo alt={SITE_NAME} src="/logo.svg" />
+            <Title>{SITE_NAME}</Title>
             <Text>Your Telegram account is being read and you will be signed in automatically…</Text>
           </Card>
         </Overlay>
@@ -80,8 +81,8 @@ export default function AuthModal() {
     return (
       <Overlay>
         <Card>
-          <Logo alt="Venom Kazino" src="/logo.svg" />
-          <Title>Venom Kazino</Title>
+          <Logo alt={SITE_NAME} src="/logo.svg" />
+          <Title>{SITE_NAME}</Title>
           <Text>Telegram account data was not found. Please reopen the Mini App directly from the bot.</Text>
           <Button onClick={() => window.location.reload()}>Try again</Button>
         </Card>
@@ -92,8 +93,8 @@ export default function AuthModal() {
   return (
     <Overlay>
       <Card>
-        <Logo alt="Venom Kazino" src="/logo.svg" />
-        <Title>Venom Kazino</Title>
+        <Logo alt={SITE_NAME} src="/logo.svg" />
+        <Title>{SITE_NAME}</Title>
         <Text>This site opens automatically with your Telegram account inside the Telegram Mini App.</Text>
         <Button onClick={() => window.location.reload()}>Refresh page</Button>
       </Card>
