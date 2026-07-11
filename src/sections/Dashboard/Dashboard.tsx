@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { SlideSection } from '../../components/Slider'
 import { GAMES } from '../../games'
 import { GameCard } from './GameCard'
+import ProfileSummary from './ProfileSummary'
 import { WelcomeBanner } from './WelcomeBanner'
 
 export function GameSlider() {
@@ -43,6 +44,7 @@ export default function Dashboard() {
   return (
     <>
       <WelcomeBanner />
+      <ProfileSummary />
       <h2 style={{ textAlign: 'center' }}>Oyunlar</h2>
       <GameGrid />
     </>
