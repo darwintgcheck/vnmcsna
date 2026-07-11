@@ -9,9 +9,9 @@ interface Props extends React.PropsWithChildren {
 
 const Container = styled.div`
   display: flex;
-  padding: 20px;
-  min-height: calc(100vh - 6rem);
-  align-items: center;
+  padding: calc(20px + env(safe-area-inset-top)) 20px 24px;
+  min-height: 100vh;
+  align-items: flex-start;
   justify-content: center;
 `
 
@@ -27,14 +27,17 @@ const Wrapper = styled.div`
   align-items: center;
   flex-direction: column;
   z-index: 100;
+  width: min(100%, 460px);
   max-width: min(100%, 460px);
-  border-radius: 10px;
+  border-radius: 20px;
   background: #15151f;
   box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.6);
-  flex: 1;
   padding-bottom: 20px;
   animation: wrapper-appear2 .3s;
   color: white;
+  margin: auto 0;
+  max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px);
+  overflow: auto;
 `
 
 const StyledModal = styled.div`
@@ -49,10 +52,10 @@ const StyledModal = styled.div`
   right: 0;
   bottom: 0;
   transition: opacity linear 150ms;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 100;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 2200;
   overflow-y: auto;
-  height: 100vh;
+  min-height: 100vh;
   animation: appear .3s;
 
   & h1 {
