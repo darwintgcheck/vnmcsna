@@ -6,42 +6,42 @@ const resultFlash = keyframes`
 `
 
 export const StyledResults = styled.div`
-  border-radius: 10px;
+  border-radius: 14px;
   background: #191c2fa1;
   margin: 0 auto;
   font-weight: bold;
   overflow: hidden;
   width: 100%;
   display: flex;
-  height: 50px;
+  min-height: 52px;
 
   & > div {
     display: flex;
     padding: 10px;
-    width: 40px;
+    min-width: 40px;
     justify-content: center;
+    align-items: center;
   }
 
   & > div:first-child {
     font-size: 24px;
-    align-items: center;
-    width: 60px;
+    min-width: 60px;
     justify-content: center;
     background: #FFFFFF11;
     animation: ${resultFlash} 1s;
   }
 `
 
-export const StyledBetButton = styled.div<{$highlighted?: boolean, $color?: 'black' | 'red'}>`
+export const StyledBetButton = styled.button<{$highlighted?: boolean, $color?: 'black' | 'red'}>`
   position: relative;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   padding: 10px 10px;
-  box-shadow: 0 0 0 1px var(--border-color);
   color: white;
   width: 60px;
   cursor: pointer;
   text-align: center;
+  font-weight: 800;
 
   ${(props) => props.$color === 'red' && css`
     --background-color: #ff3d5e;
@@ -54,7 +54,7 @@ export const StyledBetButton = styled.div<{$highlighted?: boolean, $color?: 'bla
   `}
 
   background-color: var(--background-color);
-  box-shadow: 0 0 0 1px var(--border-color);
+  box-shadow: inset 0 0 0 1px var(--border-color);
 
   &::after {
     content: " ";
@@ -65,13 +65,14 @@ export const StyledBetButton = styled.div<{$highlighted?: boolean, $color?: 'bla
     top: 0;
     width: 100%;
     height: 100%;
-    border-radius: 5px;
+    border-radius: 8px;
   }
 
   &:hover::after {
     background: #9999ff44;
     mix-blend-mode:screen;
   }
+
   ${(props) => props.$highlighted && css`
     &::after {
       background: #9999ff44;
@@ -83,6 +84,7 @@ export const StyledBetButton = styled.div<{$highlighted?: boolean, $color?: 'bla
 export const StyledTable = styled.div`
   display: grid;
   gap: 10px;
+  justify-content: center;
 `
 
 export const ChipContainer = styled.div`
