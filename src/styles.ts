@@ -2,42 +2,38 @@ import styled from 'styled-components'
 
 export const MainWrapper = styled.div`
   position: relative;
-  width: 100%;
+  width: min(1120px, 100%);
   max-width: 100%;
-  transition: width .25s ease, padding .25s ease;
   margin: 0 auto;
-  padding: 12px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  margin-top: 78px;
+  margin-top: calc(100px + env(safe-area-inset-top));
 
   @media (max-width: 720px) {
-    margin-top: 122px;
+    padding: 14px;
+    gap: 16px;
+    margin-top: calc(138px + env(safe-area-inset-top));
   }
 
-  @media (min-width: 600px) {
-    padding: 20px;
-    width: 1000px;
-  }
-
-  @media (min-width: 1280px) {
-    padding: 20px;
-    width: 1100px;
+  @media (min-width: 900px) {
+    padding: 22px;
   }
 `
 
 export const TosWrapper = styled.div`
   position: relative;
+
   &:after {
-    content: " ";
+    content: ' ';
     background: linear-gradient(180deg, transparent, #15151f);
     height: 50px;
     pointer-events: none;
     width: 100%;
     position: absolute;
-    bottom: 0px;
-    left: 0px;
+    bottom: 0;
+    left: 0;
   }
 `
 
