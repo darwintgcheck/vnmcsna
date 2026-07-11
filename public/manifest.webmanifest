@@ -1,13 +1,13 @@
 {
-  "name": "Venom Kazino",
-  "short_name": "Venom",
+  "name": "King Casino",
+  "short_name": "King",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#08080d",
   "lang": "az",
   "scope": "/",
   "theme_color": "#8C62FF",
-  "description": "Venom Kazino Telegram Mini App",
+  "description": "King Casino Telegram Mini App",
   "icons": [
     {
       "src": "/icon-512.png",
