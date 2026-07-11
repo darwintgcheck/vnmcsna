@@ -55,10 +55,9 @@ const Button = styled.button`
   color: #05050b;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s;
 
   &:hover {
-    opacity: 0.9;
+    opacity: 0.92;
   }
 `
 
@@ -75,7 +74,7 @@ export default function AuthModal() {
           <Card>
             <Logo alt={SITE_NAME} src="/logo.svg" />
             <Title>{SITE_NAME}</Title>
-            <Text>Your Telegram account is being read and you will be signed in automatically…</Text>
+            <Text>Your Telegram account is being read and you will be signed in automatically.</Text>
           </Card>
         </Overlay>
       )
@@ -88,7 +87,7 @@ export default function AuthModal() {
             <Logo alt={SITE_NAME} src="/logo.svg" />
             <Title>{SITE_NAME}</Title>
             <Text>{error}</Text>
-            <Button onClick={() => window.location.reload()}>Try again</Button>
+            <Button type="button" onClick={() => window.location.reload()}>Try again</Button>
           </Card>
         </Overlay>
       )
@@ -100,7 +99,7 @@ export default function AuthModal() {
           <Card>
             <Logo alt={SITE_NAME} src="/logo.svg" />
             <Title>{SITE_NAME}</Title>
-            <Text>Your Telegram account is being prepared…</Text>
+            <Text>Your Telegram session was found. Preparing the lobby now.</Text>
           </Card>
         </Overlay>
       )
@@ -111,8 +110,8 @@ export default function AuthModal() {
         <Card>
           <Logo alt={SITE_NAME} src="/logo.svg" />
           <Title>{SITE_NAME}</Title>
-          <Text>Telegram account data was not found. Please reopen the Mini App directly from the bot.</Text>
-          <Button onClick={() => window.location.reload()}>Try again</Button>
+          <Text>Telegram account data was not found. Please open the Mini App from the bot welcome message or the bot menu button.</Text>
+          <Button type="button" onClick={() => window.location.reload()}>Try again</Button>
         </Card>
       </Overlay>
     )
@@ -123,8 +122,8 @@ export default function AuthModal() {
       <Card>
         <Logo alt={SITE_NAME} src="/logo.svg" />
         <Title>{SITE_NAME}</Title>
-        <Text>This site opens automatically with your Telegram account inside the Telegram Mini App.</Text>
-        <Button onClick={() => window.location.reload()}>Refresh page</Button>
+        <Text>This app is designed to open inside Telegram with your account attached automatically.</Text>
+        <Button type="button" onClick={() => window.location.reload()}>Refresh page</Button>
       </Card>
     </Overlay>
   )
