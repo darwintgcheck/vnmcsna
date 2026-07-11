@@ -33,7 +33,7 @@ interface UserStore {
   logout: () => void
 }
 
-const normalizeBalance = (value: number) => Number(Math.max(0, Number(value || 0)).toFixed(2))
+const normalizeBalance = (value: number) => Math.round(Math.max(0, Number(value || 0)))
 
 const toDevAuthPayload = (user: ReturnType<typeof getTelegramUnsafeUser>) => ({
   telegramId: Number(user?.id || 0),
