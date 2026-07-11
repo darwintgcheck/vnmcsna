@@ -2,7 +2,6 @@ import { GambaUi, useSoundStore } from 'gamba-react-ui-v2'
 import React from 'react'
 import { useUserStore } from '../hooks/useUserStore'
 import { getCrashLiveStats, updateCrashPresence } from '../../lib/api'
-import { didPlayerWin } from '../../utils/houseEdge'
 import CRASH_SOUND from './crash.mp3'
 import SOUND from './music.mp3'
 import WIN_SOUND from './win.mp3'
@@ -34,8 +33,21 @@ import {
 const COUNTDOWN_SECONDS = 10
 const ROUND_RESULT_DELAY = 1800
 const LIVE_POLL_INTERVAL = 2000
+const CRASH_HOUSE_EDGE = 0.03
+const MAX_CRASH_POINT = 100
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+const generateCrashPoint = () => {
+  const seed = Math.random()
+
+  if (seed < CRASH_HOUSE_EDGE) {
+    return 1
+  }
+
+  const rawPoint = (1 - CRASH_HOUSE_EDGE) / Math.max(1 - Math.random(), 0.0001)
+  return Number(clamp(Number(rawPoint.toFixed(2)), 1, MAX_CRASH_POINT).toFixed(2))
+}
 
 export default function CrashGame() {
   const { balance, withdrawBalance, addBalance, currentUser } = useUserStore()
@@ -55,11 +67,32 @@ export default function CrashGame() {
   const [liveBettors, setLiveBettors] = React.useState(0)
 
   const roundRef = React.useRef(0)
+  const lastLaunchedNonceRef = React.useRef(0)
   const countdownTimerRef = React.useRef<number | null>(null)
   const animationFrameRef = React.useRef<number | null>(null)
   const timeoutRef = React.useRef<number | null>(null)
   const ambientAudioRef = React.useRef<HTMLAudioElement | null>(null)
   const activeSoundsRef = React.useRef<Set<HTMLAudioElement>>(new Set())
+  const soundVolumeRef = React.useRef(soundStore.volume)
+  const currentUserIdRef = React.useRef<number | null>(currentUser?.telegramId || null)
+  const wagerRef = React.useRef(wager)
+  const multiplierTargetRef = React.useRef(multiplierTarget)
+
+  React.useEffect(() => {
+    soundVolumeRef.current = soundStore.volume
+  }, [soundStore.volume])
+
+  React.useEffect(() => {
+    currentUserIdRef.current = currentUser?.telegramId || null
+  }, [currentUser?.telegramId])
+
+  React.useEffect(() => {
+    wagerRef.current = wager
+  }, [wager])
+
+  React.useEffect(() => {
+    multiplierTargetRef.current = multiplierTarget
+  }, [multiplierTarget])
 
   const registerAudio = React.useCallback((audio: HTMLAudioElement) => {
     activeSoundsRef.current.add(audio)
@@ -67,21 +100,23 @@ export default function CrashGame() {
   }, [])
 
   const playSound = React.useCallback((src: string, loop = false, volume = 0.55) => {
-    if (!soundStore.volume) {
+    const currentVolume = soundVolumeRef.current
+
+    if (!currentVolume) {
       return null
     }
 
     try {
       const audio = new Audio(src)
       audio.loop = loop
-      audio.volume = Math.min(1, volume * Math.max(soundStore.volume, 0.15))
+      audio.volume = Math.min(1, volume * Math.max(currentVolume, 0.15))
       registerAudio(audio)
       void audio.play().catch(() => undefined)
       return audio
     } catch {
       return null
     }
-  }, [registerAudio, soundStore.volume])
+  }, [registerAudio])
 
   const stopAllAudio = React.useCallback(() => {
     activeSoundsRef.current.forEach((audio) => {
@@ -102,19 +137,21 @@ export default function CrashGame() {
   }, [])
 
   const syncPresence = React.useCallback(async (active: boolean) => {
-    if (!currentUser?.telegramId) return
+    const telegramId = currentUserIdRef.current
+    if (!telegramId) return
+
     try {
       const response = await updateCrashPresence({
-        telegramId: currentUser.telegramId,
+        telegramId,
         active,
-        wager,
-        target: multiplierTarget,
+        wager: wagerRef.current,
+        target: multiplierTargetRef.current,
       })
       setLiveBettors(response.queuedBettors)
     } catch {
       // noop
     }
-  }, [currentUser?.telegramId, multiplierTarget, wager])
+  }, [])
 
   const refreshLiveBettors = React.useCallback(async () => {
     try {
@@ -163,22 +200,24 @@ export default function CrashGame() {
     }, 1000)
   }, [clearTimers, stopAmbient])
 
-  const finishRound = React.useCallback((won: boolean, wagerAmount: number, target: number, crashPoint: number) => {
+  const finishRound = React.useCallback((won: boolean, wagerAmount: number, target: number, finalPoint: number) => {
     stopAmbient()
+
     if (wagerAmount > 0) {
       playSound(won ? WIN_SOUND : CRASH_SOUND, false, 0.8)
     }
+
     setRocketState(won ? 'win' : 'crash')
-    setCurrentMultiplier(crashPoint)
+    setCurrentMultiplier(finalPoint)
 
     if (won && wagerAmount > 0) {
       const payout = Math.round(wagerAmount * target)
       addBalance(payout, 'crash-win')
-      setRoundMessage(`The rocket reached ${target.toFixed(2)}x. You won +${payout} ⭐.`)
+      setRoundMessage(`Auto cash out hit ${target.toFixed(2)}x. You won +${payout} ⭐.`)
     } else if (wagerAmount > 0) {
-      setRoundMessage(`The rocket crashed at ${crashPoint.toFixed(2)}x. This round was lost.`)
+      setRoundMessage(`The rocket crashed at ${finalPoint.toFixed(2)}x. This round was lost.`)
     } else {
-      setRoundMessage(`Round ended at ${crashPoint.toFixed(2)}x. Join the next round to play.`)
+      setRoundMessage(`Round ended at ${finalPoint.toFixed(2)}x. Join the next round to play.`)
     }
 
     setActiveWager(0)
@@ -191,8 +230,8 @@ export default function CrashGame() {
     roundRef.current += 1
     const roundId = roundRef.current
     const spectatorMode = !queuedBet
-    const nextTarget = Number(multiplierTarget.toFixed(2))
-    const nextWager = Math.max(0, Math.round(wager))
+    const nextTarget = Number(multiplierTargetRef.current.toFixed(2))
+    const nextWager = Math.max(0, Math.round(wagerRef.current))
 
     if (queuedBet) {
       if (nextWager <= 0) {
@@ -212,33 +251,42 @@ export default function CrashGame() {
       }
     }
 
+    const crashPoint = generateCrashPoint()
+    const playerWon = !spectatorMode && crashPoint >= nextTarget
+    const roundEndPoint = spectatorMode ? crashPoint : (playerWon ? nextTarget : crashPoint)
+
     setActiveWager(spectatorMode ? 0 : nextWager)
     setActiveTarget(nextTarget)
     setCurrentMultiplier(1)
     setRocketState('flying')
     setQueuedBet(false)
+    setPlannedCrashPoint(roundEndPoint)
     void syncPresence(false)
-    setRoundMessage(spectatorMode ? 'Spectator round started.' : `Bet accepted: ${nextWager} ⭐ • Target: ${nextTarget.toFixed(2)}x`)
+    setRoundMessage(
+      spectatorMode
+        ? 'Spectator round started.'
+        : `Bet accepted: ${nextWager} ⭐ • Auto cash out: ${nextTarget.toFixed(2)}x`,
+    )
     ambientAudioRef.current = playSound(SOUND, true, 0.35)
 
-    const won = spectatorMode ? false : didPlayerWin()
-    const crashPoint = spectatorMode
-      ? Number((1.05 + Math.random() * 3.95).toFixed(2))
-      : Number((won ? nextTarget : 1 + Math.random() * Math.max(nextTarget - 1, 0.2) * 0.88).toFixed(2))
-
-    setPlannedCrashPoint(crashPoint)
-
-    const durationMs = Math.max(4500, 4200 + crashPoint * 1100)
+    const durationMs = Math.max(3800, Math.round(3200 + Math.log2(Math.max(roundEndPoint, 1) + 1) * 2400))
     const startTime = performance.now()
+
     const animate = (now: number) => {
       if (roundRef.current !== roundId) return
+
       const elapsed = now - startTime
       const timeProgress = clamp(elapsed / durationMs, 0, 1)
-      const easedProgress = Math.pow(timeProgress, 1.65)
-      const nextMultiplier = Number((1 + (crashPoint - 1) * easedProgress).toFixed(2))
+      const easedProgress = Math.pow(timeProgress, 1.35)
+      const nextMultiplier = Number(
+        Math.min(
+          roundEndPoint,
+          Math.max(1, Math.exp(Math.log(Math.max(roundEndPoint, 1)) * easedProgress)),
+        ).toFixed(2),
+      )
 
-      if (timeProgress >= 1 || nextMultiplier >= crashPoint) {
-        finishRound(won, spectatorMode ? 0 : nextWager, nextTarget, crashPoint)
+      if (timeProgress >= 1 || nextMultiplier >= roundEndPoint) {
+        finishRound(playerWon, spectatorMode ? 0 : nextWager, nextTarget, roundEndPoint)
         return
       }
 
@@ -247,12 +295,12 @@ export default function CrashGame() {
     }
 
     animationFrameRef.current = window.requestAnimationFrame(animate)
-  }, [finishRound, multiplierTarget, playSound, queuedBet, startCountdown, syncPresence, wager, withdrawBalance])
+  }, [finishRound, playSound, queuedBet, startCountdown, syncPresence, withdrawBalance])
 
   React.useEffect(() => {
-    if (roundNonce > 0) {
-      launchRound()
-    }
+    if (roundNonce <= 0 || lastLaunchedNonceRef.current === roundNonce) return
+    lastLaunchedNonceRef.current = roundNonce
+    launchRound()
   }, [launchRound, roundNonce])
 
   React.useEffect(() => {
