@@ -26,7 +26,7 @@ export function WelcomeBanner() {
       <div>
         <h1>{SITE_NAME}</h1>
         <p style={{ marginBottom: 0 }}>
-          Telegram Mini App formatında stars balanslı kazino. Xoş gəldin, {user?.displayName || 'oyunçu'}.
+          Telegram Mini App formatında stars balanslı kazino. Xoş gəldin, {user?.firstName || user?.displayName || 'oyunçu'}.
         </p>
       </div>
       <img alt={SITE_NAME} src="/logo.svg" style={{ width: 72, height: 72 }} />
