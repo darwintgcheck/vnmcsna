@@ -7,7 +7,7 @@ import { generateGrid, revealAllMines, revealGold } from './utils'
 import { useUserStore } from '../hooks/useUserStore'
 
 function Mines() {
-  const { balance, updateBalance } = useUserStore()
+  const { balance, withdrawBalance, addBalance } = useUserStore()
   const sounds = useSound({
     tick: SOUND_TICK,
     win: SOUND_WIN,
@@ -58,8 +58,7 @@ function Mines() {
   const { wager, bet } = levels[currentLevel] ?? {}
 
   const start = () => {
-    if (balance < initialWager) return
-    updateBalance(-initialWager)
+    if (!withdrawBalance(initialWager, 'mines-start')) return
     setGrid(generateGrid(GRID_SIZE))
     setLoading(false)
     setLevel(0)
@@ -102,8 +101,8 @@ function Mines() {
         return
       }
 
-      const profit = wager * (getMultiplierForLevel(currentLevel) - 1)
-      updateBalance(profit)
+      const profit = Math.round(wager * (getMultiplierForLevel(currentLevel) - 1))
+      addBalance(profit, 'mines-win')
 
       const nextLevel = currentLevel + 1
       setLevel(nextLevel)
@@ -132,16 +131,16 @@ function Mines() {
             {levels.map(({ cumProfit }, i) => (
               <Level key={i} $active={currentLevel === i}>
                 <div>LEVEL {i + 1}</div>
-                <div>{cumProfit.toFixed(2)} ₾</div>
+                <div>{Math.round(cumProfit)} ⭐</div>
               </Level>
             ))}
           </Levels>
           <StatusBar>
             <div>
-              <span>Mines: {mines}</span>
+              <span>Minalar: {mines}</span>
               {totalGain > 0 && (
                 <span>
-                  +{totalGain.toFixed(2)} ₾ +{Math.round(totalGain / initialWager * 100 - 100)}%
+                  +{Math.round(totalGain)} ⭐ +{Math.round(totalGain / initialWager * 100 - 100)}%
                 </span>
               )}
             </div>
@@ -159,7 +158,7 @@ function Mines() {
                   >
                     {(cell.status === 'gold') && (
                       <div>
-                        +{cell.profit.toFixed(2)} ₾
+                        +{Math.round(cell.profit)} ⭐
                       </div>
                     )}
                   </CellButton>
@@ -177,15 +176,15 @@ function Mines() {
               options={MINE_SELECT}
               value={mines}
               onChange={setMines}
-              label={(mines) => <>{mines} Mines</>}
+              label={(mines) => <>{mines} mina</>}
             />
             <GambaUi.PlayButton onClick={start}>
-              Start
+Başlat
             </GambaUi.PlayButton>
           </>
         ) : (
           <GambaUi.Button onClick={endGame}>
-            {totalGain > 0 ? 'Finish' : 'Reset'}
+            {totalGain > 0 ? 'Bitir' : 'Sıfırla'}
           </GambaUi.Button>
         )}
       </GambaUi.Portal>
