@@ -2,10 +2,11 @@ import React from 'react'
 import styled from 'styled-components'
 import { GambaUi, useSound } from 'gamba-react-ui-v2'
 import { useUserStore } from '../../hooks/useUserStore'
-import { RANKS, RANK_SYMBOLS, SOUND_CARD, SOUND_FINISH, SOUND_LOSE, SOUND_PLAY, SOUND_WIN } from './constants'
+import { SOUND_CARD, SOUND_FINISH, SOUND_LOSE, SOUND_PLAY, SOUND_WIN } from './constants'
 
 const ScreenCard = styled.div`
   width: 100%;
+  min-height: 100%;
   display: grid;
   gap: 16px;
   padding: 18px;
@@ -20,8 +21,8 @@ const Cards = styled.div`
   gap: 14px;
 `
 
-const Card = styled.div<{ $hidden?: boolean }>`
-  min-height: 170px;
+const Card = styled.div<{ $hidden?: boolean; $red?: boolean }>`
+  min-height: 190px;
   border-radius: 22px;
   background: ${({ $hidden }) => ($hidden ? 'linear-gradient(135deg, #28213c, #14111f)' : 'linear-gradient(180deg, #ffffff, #f3f4f8)')};
   border: 1px solid ${({ $hidden }) => ($hidden ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)')};
@@ -30,7 +31,7 @@ const Card = styled.div<{ $hidden?: boolean }>`
   justify-content: center;
   position: relative;
   overflow: hidden;
-  color: ${({ $hidden }) => ($hidden ? '#d9cbff' : '#161616')};
+  color: ${({ $hidden, $red }) => ($hidden ? '#d9cbff' : $red ? '#b91c1c' : '#161616')};
   box-shadow: 0 12px 24px rgba(0,0,0,0.24);
 `
 
@@ -45,13 +46,28 @@ const CardSuit = styled.div<{ $hidden?: boolean }>`
   right: 14px;
   bottom: 10px;
   font-size: 68px;
-  opacity: ${({ $hidden }) => ($hidden ? 0.2 : 0.12)};
+  opacity: ${({ $hidden }) => ($hidden ? 0.2 : 0.16)};
+`
+
+const Corner = styled.div<{ $top?: boolean; $red?: boolean }>`
+  position: absolute;
+  ${({ $top }) => ($top ? 'top: 12px; left: 12px;' : 'right: 12px; bottom: 12px; transform: rotate(180deg);')}
+  display: grid;
+  gap: 2px;
+  line-height: 1;
+  font-weight: 900;
+  color: ${({ $red }) => ($red ? '#b91c1c' : 'inherit')};
+
+  span:last-child {
+    font-size: 18px;
+  }
 `
 
 const CardLabel = styled.div`
   position: absolute;
   top: 12px;
-  left: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -120,21 +136,84 @@ const ActionButton = styled.button<{ $accent?: boolean }>`
   font-weight: 900;
   cursor: pointer;
   border: ${({ $accent }) => ($accent ? 'none' : '1px solid rgba(255,255,255,0.12)')};
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
 `
 
-const rankSymbol = (rank: number) => RANK_SYMBOLS[Math.max(0, Math.min(RANKS - 1, rank))]
-const randomRank = () => Math.floor(Math.random() * RANKS)
+const Footer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  color: #9fb0d7;
+  font-size: 13px;
+  font-weight: 700;
+`
 
 type Choice = 'hi' | 'lo'
+type Suit = '♠' | '♥' | '♦' | '♣'
+
+interface PlayingCard {
+  id: string
+  rank: number
+  rankLabel: string
+  suit: Suit
+  isRed: boolean
+}
 
 export interface HiLoConfig {
   logo: string
 }
 
+const SUITS: Suit[] = ['♠', '♥', '♦', '♣']
+const RANK_LABELS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+
+function shuffleDeck() {
+  const deck: PlayingCard[] = []
+  SUITS.forEach((suit) => {
+    RANK_LABELS.forEach((rankLabel, rank) => {
+      deck.push({
+        id: `${rankLabel}-${suit}`,
+        rank,
+        rankLabel,
+        suit,
+        isRed: suit === '♥' || suit === '♦',
+      })
+    })
+  })
+
+  for (let i = deck.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[deck[i], deck[j]] = [deck[j], deck[i]]
+  }
+
+  return deck
+}
+
+function pullNextPlayableCard(deck: PlayingCard[], currentCard: PlayingCard) {
+  let index = deck.findIndex((card) => card.rank !== currentCard.rank)
+  if (index < 0) {
+    index = 0
+  }
+  const [card] = deck.splice(index, 1)
+  return card
+}
+
+function createFreshRound() {
+  const deck = shuffleDeck()
+  const currentCard = deck.shift()!
+  return { currentCard, deck }
+}
+
 export default function HiLo({ logo }: HiLoConfig) {
   const { balance, withdrawBalance, addBalance } = useUserStore()
-  const [currentRank, setCurrentRank] = React.useState(randomRank())
-  const [nextRank, setNextRank] = React.useState<number | null>(null)
+  const initialRound = React.useMemo(() => createFreshRound(), [])
+  const [deck, setDeck] = React.useState<PlayingCard[]>(initialRound.deck)
+  const [currentCard, setCurrentCard] = React.useState<PlayingCard>(initialRound.currentCard)
+  const [nextCard, setNextCard] = React.useState<PlayingCard | null>(null)
   const [choice, setChoice] = React.useState<Choice>('hi')
   const [wager, setWager] = React.useState(10)
   const [status, setStatus] = React.useState('Choose higher or lower and deal the next card.')
@@ -149,12 +228,15 @@ export default function HiLo({ logo }: HiLoConfig) {
     finish: SOUND_FINISH,
   })
 
-  const resetRound = () => {
-    setNextRank(null)
-    setStatus('Choose higher or lower and deal the next card.')
+  const resetRound = React.useCallback((message = 'New shuffled deck. Choose higher or lower and deal the next card.') => {
+    const fresh = createFreshRound()
+    setDeck(fresh.deck)
+    setCurrentCard(fresh.currentCard)
+    setNextCard(null)
+    setStatus(message)
     setLastNet(null)
     sounds.play('finish', { playbackRate: 0.9 })
-  }
+  }, [sounds])
 
   const play = () => {
     const nextWager = Math.max(1, Math.round(Number(wager) || 1))
@@ -167,30 +249,46 @@ export default function HiLo({ logo }: HiLoConfig) {
       return
     }
 
+    let workingDeck = [...deck]
+    let workingCurrentCard = currentCard
+
+    if (workingDeck.length < 2) {
+      const fresh = createFreshRound()
+      workingDeck = fresh.deck
+      workingCurrentCard = fresh.currentCard
+      setCurrentCard(fresh.currentCard)
+    }
+
+    const dealtCard = pullNextPlayableCard(workingDeck, workingCurrentCard)
+    if (!dealtCard) {
+      resetRound()
+      return
+    }
+
     setBusy(true)
     setStatus('Dealing the next card…')
     setLastNet(null)
     sounds.play('play')
 
-    const dealtRank = randomRank()
     window.setTimeout(() => {
-      setNextRank(dealtRank)
+      setNextCard(dealtCard)
       sounds.play('card', { playbackRate: 0.9 })
 
-      const won = choice === 'hi' ? dealtRank >= currentRank : dealtRank <= currentRank
+      const won = choice === 'hi' ? dealtCard.rank > workingCurrentCard.rank : dealtCard.rank < workingCurrentCard.rank
       if (won) {
         const payout = nextWager * 2
         addBalance(payout, 'hilo-win')
         setLastNet(payout - nextWager)
-        setStatus(`Correct guess. ${rankSymbol(dealtRank)} was ${choice === 'hi' ? 'higher' : 'lower'} and you won ${payout} ⭐.`)
+        setStatus(`Correct guess. ${dealtCard.rankLabel}${dealtCard.suit} was ${choice === 'hi' ? 'higher' : 'lower'} and you won ${payout} ⭐.`)
         sounds.play('win')
       } else {
         setLastNet(-nextWager)
-        setStatus(`Wrong guess. The next card was ${rankSymbol(dealtRank)}.`)
+        setStatus(`Wrong guess. The next card was ${dealtCard.rankLabel}${dealtCard.suit}.`)
         sounds.play('lose')
       }
 
-      setCurrentRank(dealtRank)
+      setCurrentCard(dealtCard)
+      setDeck(workingDeck)
       setBusy(false)
     }, 500)
   }
@@ -200,21 +298,46 @@ export default function HiLo({ logo }: HiLoConfig) {
       <GambaUi.Portal target="screen">
         <ScreenCard>
           <Cards>
-            <Card>
+            <Card $red={currentCard.isRed}>
               <CardLabel>Current card</CardLabel>
-              <CardRank>{rankSymbol(currentRank)}</CardRank>
-              <CardSuit style={{ backgroundImage: `url(${logo})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', width: 72, height: 72 }} />
+              <Corner $top $red={currentCard.isRed}>
+                <span>{currentCard.rankLabel}</span>
+                <span>{currentCard.suit}</span>
+              </Corner>
+              <Corner $red={currentCard.isRed}>
+                <span>{currentCard.rankLabel}</span>
+                <span>{currentCard.suit}</span>
+              </Corner>
+              <CardRank>{currentCard.rankLabel}</CardRank>
+              <CardSuit>{currentCard.suit}</CardSuit>
             </Card>
-            <Card $hidden={nextRank === null}>
+            <Card $hidden={nextCard === null} $red={nextCard?.isRed}>
               <CardLabel>Next card</CardLabel>
-              <CardRank>{nextRank === null ? '?' : rankSymbol(nextRank)}</CardRank>
-              <CardSuit $hidden={nextRank === null} style={{ backgroundImage: `url(${logo})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', width: 72, height: 72 }} />
+              {nextCard ? (
+                <>
+                  <Corner $top $red={nextCard.isRed}>
+                    <span>{nextCard.rankLabel}</span>
+                    <span>{nextCard.suit}</span>
+                  </Corner>
+                  <Corner $red={nextCard.isRed}>
+                    <span>{nextCard.rankLabel}</span>
+                    <span>{nextCard.suit}</span>
+                  </Corner>
+                </>
+              ) : null}
+              <CardRank>{nextCard === null ? '?' : nextCard.rankLabel}</CardRank>
+              <CardSuit $hidden={nextCard === null}>{nextCard === null ? '🂠' : nextCard.suit}</CardSuit>
             </Card>
           </Cards>
 
           <Status $win={Boolean(lastNet && lastNet > 0)} $loss={Boolean(lastNet !== null && lastNet < 0)}>
             {status}
           </Status>
+
+          <Footer>
+            <span>Cards left: {deck.length}</span>
+            <span>Deck mode: no duplicate rank streaks</span>
+          </Footer>
         </ScreenCard>
       </GambaUi.Portal>
 
@@ -233,7 +356,7 @@ export default function HiLo({ logo }: HiLoConfig) {
             <GuessButton type="button" $active={choice === 'lo'} onClick={() => setChoice('lo')}>Lower</GuessButton>
           </GuessRow>
           <ActionRow>
-            <ActionButton type="button" onClick={resetRound}>Reset</ActionButton>
+            <ActionButton type="button" onClick={() => resetRound()}>Reset Deck</ActionButton>
             <ActionButton type="button" $accent disabled={busy || wager > balance} onClick={play}>Deal Card</ActionButton>
           </ActionRow>
         </Controls>
