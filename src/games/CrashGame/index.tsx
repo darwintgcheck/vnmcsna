@@ -1,6 +1,7 @@
-import { GambaUi } from 'gamba-react-ui-v2'
+import { GambaUi, useSoundStore } from 'gamba-react-ui-v2'
 import React from 'react'
 import { useUserStore } from '../hooks/useUserStore'
+import { getCrashLiveStats, updateCrashPresence } from '../../lib/api'
 import { didPlayerWin } from '../../utils/houseEdge'
 import CRASH_SOUND from './crash.mp3'
 import SOUND from './music.mp3'
@@ -32,22 +33,26 @@ import {
 
 const COUNTDOWN_SECONDS = 10
 const ROUND_RESULT_DELAY = 1800
+const LIVE_POLL_INTERVAL = 2000
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 export default function CrashGame() {
-  const { balance, withdrawBalance, addBalance } = useUserStore()
+  const { balance, withdrawBalance, addBalance, currentUser } = useUserStore()
+  const soundStore = useSoundStore()
+
   const [wager, setWager] = React.useState(10)
   const [multiplierTarget, setMultiplierTarget] = React.useState(1.5)
   const [currentMultiplier, setCurrentMultiplier] = React.useState(1)
   const [rocketState, setRocketState] = React.useState<'countdown' | 'flying' | 'win' | 'crash'>('countdown')
   const [countdown, setCountdown] = React.useState(COUNTDOWN_SECONDS)
-  const [roundMessage, setRoundMessage] = React.useState('The next flight starts in 10 seconds.')
+  const [roundMessage, setRoundMessage] = React.useState('')
   const [queuedBet, setQueuedBet] = React.useState(false)
   const [activeWager, setActiveWager] = React.useState(0)
   const [activeTarget, setActiveTarget] = React.useState(1.5)
   const [plannedCrashPoint, setPlannedCrashPoint] = React.useState(1.5)
   const [roundNonce, setRoundNonce] = React.useState(0)
+  const [liveBettors, setLiveBettors] = React.useState(0)
 
   const roundRef = React.useRef(0)
   const countdownTimerRef = React.useRef<number | null>(null)
@@ -62,17 +67,21 @@ export default function CrashGame() {
   }, [])
 
   const playSound = React.useCallback((src: string, loop = false, volume = 0.55) => {
+    if (!soundStore.volume) {
+      return null
+    }
+
     try {
       const audio = new Audio(src)
       audio.loop = loop
-      audio.volume = volume
+      audio.volume = Math.min(1, volume * Math.max(soundStore.volume, 0.15))
       registerAudio(audio)
       void audio.play().catch(() => undefined)
       return audio
     } catch {
       return null
     }
-  }, [registerAudio])
+  }, [registerAudio, soundStore.volume])
 
   const stopAllAudio = React.useCallback(() => {
     activeSoundsRef.current.forEach((audio) => {
@@ -92,12 +101,28 @@ export default function CrashGame() {
     }
   }, [])
 
-  const calculateBiasedLowMultiplier = React.useCallback((target: number) => {
-    const randomValue = Math.random()
-    const maxPossibleMultiplier = Math.min(target, 12)
-    const exponent = randomValue > 0.95 ? 2.8 : target > 10 ? 5 : 6
-    const result = 1 + Math.pow(randomValue, exponent) * (maxPossibleMultiplier - 1)
-    return Number(Math.max(1.01, result).toFixed(2))
+  const syncPresence = React.useCallback(async (active: boolean) => {
+    if (!currentUser?.telegramId) return
+    try {
+      const response = await updateCrashPresence({
+        telegramId: currentUser.telegramId,
+        active,
+        wager,
+        target: multiplierTarget,
+      })
+      setLiveBettors(response.queuedBettors)
+    } catch {
+      // noop
+    }
+  }, [currentUser?.telegramId, multiplierTarget, wager])
+
+  const refreshLiveBettors = React.useCallback(async () => {
+    try {
+      const response = await getCrashLiveStats()
+      setLiveBettors(response.queuedBettors)
+    } catch {
+      // noop
+    }
   }, [])
 
   const clearTimers = React.useCallback(() => {
@@ -121,7 +146,7 @@ export default function CrashGame() {
     setRocketState('countdown')
     setCurrentMultiplier(1)
     setCountdown(COUNTDOWN_SECONDS)
-    setRoundMessage('Countdown started. The next flight launches automatically.')
+    setRoundMessage('')
 
     countdownTimerRef.current = window.setInterval(() => {
       setCountdown((prev) => {
@@ -140,7 +165,9 @@ export default function CrashGame() {
 
   const finishRound = React.useCallback((won: boolean, wagerAmount: number, target: number, crashPoint: number) => {
     stopAmbient()
-    playSound(won ? WIN_SOUND : CRASH_SOUND, false, 0.8)
+    if (wagerAmount > 0) {
+      playSound(won ? WIN_SOUND : CRASH_SOUND, false, 0.8)
+    }
     setRocketState(won ? 'win' : 'crash')
     setCurrentMultiplier(crashPoint)
 
@@ -151,12 +178,10 @@ export default function CrashGame() {
     } else if (wagerAmount > 0) {
       setRoundMessage(`The rocket crashed at ${crashPoint.toFixed(2)}x. This round was lost.`)
     } else {
-      setRoundMessage(`Spectator round ended at ${crashPoint.toFixed(2)}x. Join the next round to play.`)
+      setRoundMessage(`Round ended at ${crashPoint.toFixed(2)}x. Join the next round to play.`)
     }
 
-    setQueuedBet(false)
     setActiveWager(0)
-
     timeoutRef.current = window.setTimeout(() => {
       startCountdown()
     }, ROUND_RESULT_DELAY)
@@ -173,6 +198,7 @@ export default function CrashGame() {
       if (nextWager <= 0) {
         setRoundMessage('The wager must be at least 1 ⭐.')
         setQueuedBet(false)
+        void syncPresence(false)
         startCountdown()
         return
       }
@@ -180,6 +206,7 @@ export default function CrashGame() {
       if (!withdrawBalance(nextWager, 'crash-bet')) {
         setRoundMessage('Not enough balance. The bet was cancelled for the next round.')
         setQueuedBet(false)
+        void syncPresence(false)
         startCountdown()
         return
       }
@@ -189,24 +216,28 @@ export default function CrashGame() {
     setActiveTarget(nextTarget)
     setCurrentMultiplier(1)
     setRocketState('flying')
+    setQueuedBet(false)
+    void syncPresence(false)
     setRoundMessage(spectatorMode ? 'Spectator round started.' : `Bet accepted: ${nextWager} ⭐ • Target: ${nextTarget.toFixed(2)}x`)
     ambientAudioRef.current = playSound(SOUND, true, 0.35)
 
-    const won = spectatorMode ? didPlayerWin(0.45) : didPlayerWin()
+    const won = spectatorMode ? false : didPlayerWin()
     const crashPoint = spectatorMode
-      ? Number((1.1 + Math.random() * 4.9).toFixed(2))
-      : Number((won ? nextTarget : calculateBiasedLowMultiplier(nextTarget)).toFixed(2))
+      ? Number((1.05 + Math.random() * 3.95).toFixed(2))
+      : Number((won ? nextTarget : 1 + Math.random() * Math.max(nextTarget - 1, 0.2) * 0.88).toFixed(2))
 
     setPlannedCrashPoint(crashPoint)
 
+    const durationMs = Math.max(4500, 4200 + crashPoint * 1100)
     const startTime = performance.now()
     const animate = (now: number) => {
       if (roundRef.current !== roundId) return
       const elapsed = now - startTime
-      const growth = Math.max(0, elapsed / 1200)
-      const nextMultiplier = Number((1 + growth * 0.78 + growth * growth * 0.48).toFixed(2))
+      const timeProgress = clamp(elapsed / durationMs, 0, 1)
+      const easedProgress = Math.pow(timeProgress, 1.65)
+      const nextMultiplier = Number((1 + (crashPoint - 1) * easedProgress).toFixed(2))
 
-      if (nextMultiplier >= crashPoint) {
+      if (timeProgress >= 1 || nextMultiplier >= crashPoint) {
         finishRound(won, spectatorMode ? 0 : nextWager, nextTarget, crashPoint)
         return
       }
@@ -216,7 +247,7 @@ export default function CrashGame() {
     }
 
     animationFrameRef.current = window.requestAnimationFrame(animate)
-  }, [calculateBiasedLowMultiplier, finishRound, multiplierTarget, playSound, queuedBet, startCountdown, wager, withdrawBalance])
+  }, [finishRound, multiplierTarget, playSound, queuedBet, startCountdown, syncPresence, wager, withdrawBalance])
 
   React.useEffect(() => {
     if (roundNonce > 0) {
@@ -226,14 +257,49 @@ export default function CrashGame() {
 
   React.useEffect(() => {
     startCountdown()
-    const handlePageHide = () => stopAllAudio()
+    void refreshLiveBettors()
+
+    const pollId = window.setInterval(() => {
+      void refreshLiveBettors()
+    }, LIVE_POLL_INTERVAL)
+
+    const handlePageHide = () => {
+      stopAllAudio()
+      void syncPresence(false)
+    }
+
     window.addEventListener('pagehide', handlePageHide)
     return () => {
       clearTimers()
       stopAllAudio()
+      void syncPresence(false)
+      window.clearInterval(pollId)
       window.removeEventListener('pagehide', handlePageHide)
     }
-  }, [clearTimers, startCountdown, stopAllAudio])
+  }, [clearTimers, refreshLiveBettors, startCountdown, stopAllAudio, syncPresence])
+
+  React.useEffect(() => {
+    if (!soundStore.volume) {
+      stopAllAudio()
+    }
+  }, [soundStore.volume, stopAllAudio])
+
+  React.useEffect(() => {
+    if (queuedBet && rocketState === 'countdown') {
+      void syncPresence(true)
+      const heartbeat = window.setInterval(() => {
+        void syncPresence(true)
+      }, 12_000)
+
+      return () => {
+        window.clearInterval(heartbeat)
+      }
+    }
+
+    if (currentUser?.telegramId) {
+      void syncPresence(false)
+    }
+  }, [currentUser?.telegramId, queuedBet, rocketState, syncPresence])
 
   const toggleQueuedBet = () => {
     if (rocketState !== 'countdown') return
@@ -258,11 +324,13 @@ export default function CrashGame() {
   const progress = clamp((currentMultiplier - 1) / Math.max(plannedCrashPoint - 1, 0.2), 0, 1)
   const rocketStyle = {
     left: `${16 + progress * 70}%`,
-    bottom: `${16 + Math.pow(progress, 1.35) * 54}%`,
-    transform: `translate3d(0, 0, 0) rotate(${72 - progress * 60}deg)`,
+    bottom: `${16 + Math.pow(progress, 1.22) * 52}%`,
+    transform: `translate3d(0, 0, 0) rotate(${70 - progress * 52}deg)`,
   }
 
   const multiplierColor = rocketState === 'crash' ? '#ff7070' : rocketState === 'win' ? '#72ff9f' : '#ffffff'
+  const statusText = rocketState === 'countdown' ? `Launch in ${countdown}s` : rocketState === 'flying' ? 'Round in progress' : 'Round finished'
+  const screenMessage = rocketState === 'countdown' ? (queuedBet ? roundMessage : '') : roundMessage
 
   return (
     <>
@@ -275,10 +343,10 @@ export default function CrashGame() {
           <StarsLayer3 style={{ opacity: currentMultiplier > 1 ? 0 : 1 }} />
           <LineLayer3 style={{ opacity: currentMultiplier > 1 ? 1 : 0 }} />
 
-          <RoundBadge>
-            {rocketState === 'countdown' ? `Launch in ${countdown}s` : rocketState === 'flying' ? 'Round in progress' : 'Round finished'}
-          </RoundBadge>
+          <RoundBadge>{statusText}</RoundBadge>
           <RoundInfo>
+            Live bettors: {liveBettors}
+            <br />
             Active wager: {activeWager || 0} ⭐
             <br />
             Target: {(rocketState === 'flying' || rocketState === 'win') ? activeTarget.toFixed(2) : multiplierTarget.toFixed(2)}x
@@ -287,7 +355,7 @@ export default function CrashGame() {
           <CrashCurve $progress={progress} />
           <MultiplierText $color={multiplierColor}>{currentMultiplier.toFixed(2)}x</MultiplierText>
           <Rocket style={rocketStyle} />
-          <Message>{roundMessage}</Message>
+          {screenMessage && <Message>{screenMessage}</Message>}
         </ScreenWrapper>
       </GambaUi.Portal>
 
