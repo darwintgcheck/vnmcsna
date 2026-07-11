@@ -6,7 +6,7 @@ import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import { GAMES } from '../../games'
 import { useUserStore } from '../../hooks/useUserStore'
-import { Container, Controls, ExitButton, IconButton, MetaControls, MetaGroup, Screen, Splash } from './Game.styles'
+import { Container, Controls, ExitButton, IconButton, MetaControls, MetaGroup, Screen, ScreenViewport, Splash } from './Game.styles'
 
 const TopMeta = styled.div`
   display: flex;
@@ -79,23 +79,26 @@ function CustomRenderer() {
         </Modal>
       )}
       <Container>
+        <MetaControls>
+          <ExitButton as={Link} to="/">← Exit game</ExitButton>
+          <MetaGroup>
+            <IconButton onClick={() => setInfo(true)}>
+              <Icon.Info />
+            </IconButton>
+            <IconButton onClick={() => soundStore.set(soundStore.volume ? 0 : 0.5)}>
+              {soundStore.volume ? <Icon.Volume /> : <Icon.VolumeMuted />}
+            </IconButton>
+          </MetaGroup>
+        </MetaControls>
+
         <Screen>
           <Splash>
             <img height="150px" src={game.meta.image} />
           </Splash>
-          <GambaUi.PortalTarget target="error" />
-          {ready && <GambaUi.PortalTarget target="screen" />}
-          <MetaControls>
-            <ExitButton as={Link} to="/">← Exit game</ExitButton>
-            <MetaGroup>
-              <IconButton onClick={() => setInfo(true)}>
-                <Icon.Info />
-              </IconButton>
-              <IconButton onClick={() => soundStore.set(soundStore.volume ? 0 : 0.5)}>
-                {soundStore.volume ? <Icon.Volume /> : <Icon.VolumeMuted />}
-              </IconButton>
-            </MetaGroup>
-          </MetaControls>
+          <ScreenViewport>
+            <GambaUi.PortalTarget target="error" />
+            {ready && <GambaUi.PortalTarget target="screen" />}
+          </ScreenViewport>
         </Screen>
         <Controls>
           <div>
