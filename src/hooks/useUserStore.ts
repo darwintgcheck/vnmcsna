@@ -1,7 +1,7 @@
 import { StoreApi, create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { authDev, authMiniApp, authTelegram, createDeposit, createWithdraw, fetchUser, syncBalance } from '../lib/api'
-import { getTelegramInitData, getTelegramUnsafeUser, isTelegramMiniApp, prepareTelegramUi } from '../lib/telegram'
+import { getTelegramInitData, getTelegramUnsafeUser, isTelegramMiniApp, prepareTelegramUi, waitForTelegramSession } from '../lib/telegram'
 import type { DepositRequestResult, GameResultSnapshot, PublicConfig, User, WithdrawRequestResult } from '../types'
 
 type GameMode = 'real' | 'demo'
@@ -115,10 +115,16 @@ export const useUserStore = create<UserStore>()(
 
         try {
           prepareTelegramUi()
-          const unsafeUser = getTelegramUnsafeUser()
-          const initData = getTelegramInitData()
+          let unsafeUser = getTelegramUnsafeUser()
+          let initData = getTelegramInitData()
 
           if (isTelegramMiniApp()) {
+            if (!initData && !unsafeUser?.id) {
+              const session = await waitForTelegramSession(3200)
+              initData = session.initData
+              unsafeUser = session.user
+            }
+
             if (initData) {
               try {
                 const response = await authTelegram(initData)
