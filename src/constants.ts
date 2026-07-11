@@ -25,10 +25,10 @@ export const TOKEN_METADATA: (Partial<TokenMeta> & { mint: PublicKey })[] = [
   },
 ]
 export const TOS_HTML = `
-  <p><b>1.</b> Platforma yalnız Telegram hesabı ilə işləyir.</p>
-  <p><b>2.</b> Balans, depozit və çıxarışlar ulduz vahidi ilə hesablanır.</p>
-  <p><b>3.</b> Çıxarışlarda 8% komissiya tətbiq olunur.</p>
-  <p><b>4.</b> Bütün əməliyyat qeydləri server tərəfində saxlanılır.</p>
+  <p><b>1.</b> The platform works with your Telegram account.</p>
+  <p><b>2.</b> Balance, deposits, and withdrawals are calculated in Stars.</p>
+  <p><b>3.</b> Withdrawals apply an 8% fee.</p>
+  <p><b>4.</b> Transaction logs are stored on the server side.</p>
 `
 export const TOKEN_METADATA_FETCHER = undefined
 export const ENABLE_LEADERBOARD = false
