@@ -16,6 +16,7 @@ const ALLOW_DEV_AUTH = process.env.ALLOW_DEV_AUTH === 'true' || process.env.NODE
 const ADMIN_USERS_PAGE_SIZE = 8;
 const CRASH_PRESENCE_TTL_MS = 45_000;
 const MINIAPP_AUTH_TTL_SECONDS = 60 * 60 * 24 * 7;
+const MINI_APP_URL = String(process.env.MINI_APP_URL || process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/$/, '');
 
 const ADMIN_TELEGRAM_IDS = new Set(
   String(process.env.ADMIN_TELEGRAM_IDS || '')
@@ -120,6 +121,10 @@ const withdrawalSchema = new mongoose.Schema(
     status: { type: String, required: true, default: 'pending_manual_payout' },
     createdAt: { type: String, default: nowIso },
     updatedAt: { type: String, default: nowIso },
+    approvedAt: String,
+    rejectedAt: String,
+    handledBy: Number,
+    rejectionReason: String,
   },
   { versionKey: false },
 );
@@ -451,6 +456,18 @@ async function handleAdminCallback(callbackQuery) {
   try {
     const [_, action, valueA = '', valueB = ''] = data.split(':');
 
+    if (action === 'wdapprove' || action === 'wdreject') {
+      await handleWithdrawalDecision({
+        requestId: valueA,
+        approved: action === 'wdapprove',
+        adminTelegramId: fromId,
+        chatId,
+        messageId,
+      });
+      await answerCallbackQuery(callbackQuery.id, action === 'wdapprove' ? 'Withdrawal approved' : 'Withdrawal rejected');
+      return true;
+    }
+
     if (action === 'home') {
       await renderAdminHome(chatId, messageId);
       await answerCallbackQuery(callbackQuery.id, 'Updated');
@@ -574,6 +591,199 @@ function buildDepositTitle() {
 
 function buildDepositDescription(amount) {
   return `${amount} Telegram Stars will be added to your balance.`;
+}
+
+function getMiniAppUrl() {
+  return MINI_APP_URL || '';
+}
+
+function buildWelcomeCaption() {
+  return [
+    `<b>Welcome to ${escapeHtml(SITE_NAME)}</b>`,
+    'A clean Telegram Stars casino with real-balance games, quick deposits, and manual withdrawal review.',
+    '',
+    '• Play classic casino games',
+    '• Deposit with Telegram Stars',
+    '• Withdrawals are reviewed by the admin team',
+  ].join('\n');
+}
+
+async function sendTelegramText(chatId, text, replyMarkup) {
+  if (!BOT_TOKEN || !chatId) return null;
+  return callTelegramApi('sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    reply_markup: replyMarkup,
+  });
+}
+
+async function sendWelcomeMessage(chatId) {
+  if (!BOT_TOKEN || !chatId) return null;
+
+  const miniAppUrl = getMiniAppUrl();
+  const replyMarkup = miniAppUrl
+    ? {
+        inline_keyboard: [[{ text: '🎰 Open King Casino', web_app: { url: miniAppUrl } }]],
+      }
+    : undefined;
+
+  const photoUrl = miniAppUrl ? `${miniAppUrl}/icon-512.png` : undefined;
+  const caption = buildWelcomeCaption();
+
+  if (photoUrl) {
+    try {
+      return await callTelegramApi('sendPhoto', {
+        chat_id: chatId,
+        photo: photoUrl,
+        caption,
+        parse_mode: 'HTML',
+        reply_markup: replyMarkup,
+      });
+    } catch (error) {
+      console.error('sendWelcomeMessage photo fallback:', error.message);
+    }
+  }
+
+  return sendTelegramText(chatId, caption, replyMarkup);
+}
+
+function buildWithdrawalAdminMessage(request, user) {
+  return [
+    '<b>Withdrawal review required</b>',
+    `Player: <b>${escapeHtml(user?.displayName || user?.firstName || `User ${request.telegramId}`)}</b>`,
+    `Username: <b>${user?.username ? `@${escapeHtml(user.username)}` : '—'}</b>`,
+    `Telegram ID: <code>${request.telegramId}</code>`,
+    `Request ID: <code>${request.id}</code>`,
+    `Requested: <b>${Number(request.amount).toFixed(2)} ⭐</b>`,
+    `Fee: <b>${Number(request.feeAmount).toFixed(2)} ⭐</b>`,
+    `Net payout: <b>${Number(request.netAmount).toFixed(2)} ⭐</b>`,
+    `Status: <b>${escapeHtml(request.status)}</b>`,
+    `Created: <code>${escapeHtml(request.createdAt || nowIso())}</code>`,
+  ].join('\n');
+}
+
+function getWithdrawalAdminMarkup(requestId) {
+  return {
+    inline_keyboard: [
+      [
+        { text: '✅ Approve', callback_data: `adm:wdapprove:${requestId}` },
+        { text: '❌ Reject', callback_data: `adm:wdreject:${requestId}` },
+      ],
+      [{ text: '🏠 Admin home', callback_data: 'adm:home' }],
+    ],
+  };
+}
+
+async function notifyAdminsAboutWithdrawal(request, user) {
+  if (!BOT_TOKEN || !ADMIN_TELEGRAM_IDS.size) return;
+
+  const text = buildWithdrawalAdminMessage(request, user);
+  const replyMarkup = getWithdrawalAdminMarkup(request.id);
+
+  await Promise.all(
+    [...ADMIN_TELEGRAM_IDS].map(async (adminTelegramId) => {
+      try {
+        await sendTelegramText(adminTelegramId, text, replyMarkup);
+      } catch (error) {
+        console.error(`withdraw admin notify error for ${adminTelegramId}:`, error.message);
+      }
+    }),
+  );
+}
+
+async function notifyUserAboutWithdrawalStatus(withdrawal, approved) {
+  if (!BOT_TOKEN || !withdrawal?.telegramId) return;
+
+  const message = approved
+    ? [
+        `<b>${escapeHtml(SITE_NAME)}</b>`,
+        `Your withdrawal request for <b>${Number(withdrawal.amount).toFixed(2)} ⭐</b> was approved.`,
+        `Net payout: <b>${Number(withdrawal.netAmount).toFixed(2)} ⭐</b>.`,
+      ].join('\n')
+    : [
+        `<b>${escapeHtml(SITE_NAME)}</b>`,
+        `Your withdrawal request for <b>${Number(withdrawal.amount).toFixed(2)} ⭐</b> was rejected.`,
+        'The full amount was returned to your balance.',
+      ].join('\n');
+
+  try {
+    await sendTelegramText(withdrawal.telegramId, message);
+  } catch (error) {
+    console.error('withdraw user notify error:', error.message);
+  }
+}
+
+async function handleWithdrawalDecision({ requestId, approved, adminTelegramId, chatId, messageId }) {
+  await ensureMongo();
+  const withdrawal = await WithdrawalModel.findOne({ id: requestId }).lean();
+  if (!withdrawal) {
+    throw new Error('Withdrawal request not found');
+  }
+
+  if (withdrawal.status !== 'pending_manual_payout') {
+    const user = await UserModel.findOne({ telegramId: withdrawal.telegramId }).lean();
+    await sendOrEditTelegramMessage({
+      chatId,
+      messageId,
+      text: `${buildWithdrawalAdminMessage(withdrawal, user)}\n\nHandled already.`,
+      replyMarkup: { inline_keyboard: [[{ text: '🏠 Admin home', callback_data: 'adm:home' }]] },
+    });
+    return withdrawal;
+  }
+
+  const user = await UserModel.findOne({ telegramId: withdrawal.telegramId }).lean();
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (approved) {
+    await WithdrawalModel.updateOne(
+      { id: requestId },
+      {
+        $set: {
+          status: 'approved',
+          approvedAt: nowIso(),
+          updatedAt: nowIso(),
+          handledBy: adminTelegramId,
+        },
+      },
+    );
+    await UserModel.updateOne(
+      { telegramId: withdrawal.telegramId },
+      { $inc: { totalWithdrawn: withdrawal.netAmount } },
+    );
+  } else {
+    await WithdrawalModel.updateOne(
+      { id: requestId },
+      {
+        $set: {
+          status: 'rejected',
+          rejectedAt: nowIso(),
+          updatedAt: nowIso(),
+          handledBy: adminTelegramId,
+          rejectionReason: 'Rejected by admin',
+        },
+      },
+    );
+    await addUserBalance(withdrawal.telegramId, withdrawal.amount);
+  }
+
+  const nextWithdrawal = await WithdrawalModel.findOne({ id: requestId }).lean();
+  const nextUser = await UserModel.findOne({ telegramId: withdrawal.telegramId }).lean();
+  const suffix = approved
+    ? '\n\n✅ Approved. User has been notified.'
+    : '\n\n❌ Rejected. Balance refunded and user notified.';
+
+  await sendOrEditTelegramMessage({
+    chatId,
+    messageId,
+    text: `${buildWithdrawalAdminMessage(nextWithdrawal, nextUser)}${suffix}`,
+    replyMarkup: { inline_keyboard: [[{ text: '🏠 Admin home', callback_data: 'adm:home' }]] },
+  });
+  await notifyUserAboutWithdrawalStatus(nextWithdrawal, approved);
+  return nextWithdrawal;
 }
 
 async function createTelegramInvoiceLink({ title, description, payload, amount }) {
@@ -810,7 +1020,6 @@ app.post('/api/withdrawals/request', async (req, res) => {
       { telegramId },
       {
         $set: { balance: normalizeNumber((currentUser.balance || 0) - amount, { min: 0, precision: 2, fallback: 0 }) },
-        $inc: { totalWithdrawn: netAmount },
       },
       { new: true, lean: true },
     );
@@ -820,7 +1029,7 @@ app.post('/api/withdrawals/request', async (req, res) => {
     }
 
     const requestId = crypto.randomUUID();
-    await WithdrawalModel.create({
+    const withdrawalRequest = {
       id: requestId,
       telegramId,
       amount,
@@ -829,7 +1038,10 @@ app.post('/api/withdrawals/request', async (req, res) => {
       status: 'pending_manual_payout',
       createdAt: nowIso(),
       updatedAt: nowIso(),
-    });
+    };
+
+    await WithdrawalModel.create(withdrawalRequest);
+    await notifyAdminsAboutWithdrawal(withdrawalRequest, user);
 
     res.json({
       ok: true,
@@ -901,6 +1113,13 @@ app.post('/api/telegram/webhook', async (req, res) => {
     }
 
     if (update.message?.text) {
+      const text = String(update.message.text || '').trim();
+
+      if (/^\/start(?:@\w+)?(?:\s|$)/i.test(text)) {
+        await sendWelcomeMessage(update.message.chat?.id);
+        return res.json({ ok: true });
+      }
+
       const handled = await handleAdminCommand(update.message);
       if (handled) {
         return res.json({ ok: true });
@@ -1087,5 +1306,34 @@ app.listen(PORT, '0.0.0.0', async () => {
       .then((response) => response.json())
       .then((data) => console.log('Webhook set:', data.ok ? '✅' : '❌', data.description || ''))
       .catch((error) => console.error('Webhook set error:', error.message));
+  }
+
+  if (BOT_TOKEN && getMiniAppUrl()) {
+    const miniAppUrl = getMiniAppUrl();
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setChatMenuButton`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        menu_button: {
+          type: 'web_app',
+          text: 'Open King Casino',
+          web_app: { url: miniAppUrl },
+        },
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => console.log('Menu button set:', data.ok ? '✅' : '❌', data.description || ''))
+      .catch((error) => console.error('Menu button set error:', error.message));
+
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        commands: [{ command: 'start', description: 'Open King Casino' }],
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => console.log('Bot commands set:', data.ok ? '✅' : '❌', data.description || ''))
+      .catch((error) => console.error('Bot commands set error:', error.message));
   }
 });
