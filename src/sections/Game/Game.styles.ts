@@ -21,7 +21,7 @@ export const Container = styled.div`
   width: 100%;
   position: relative;
   display: grid;
-  gap: 5px;
+  gap: 12px;
 `
 
 export const SettingControls = styled.div`
@@ -60,28 +60,27 @@ export const Screen = styled.div`
   position: relative;
   flex-grow: 1;
   background: #0c0c11;
-  border-radius: 10px;
+  border-radius: 18px;
   overflow: hidden;
   transition: height .2s ease;
-  height: 600px;
-  @media (max-width: 700px) {
-    height: 600px;
-  }
+  height: clamp(320px, 52vh, 600px);
+  min-height: 320px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 `
 
 export const IconButton = styled.button`
   background: none;
   border: none;
   padding: 0;
-  width: 50px;
-  padding: 10px;
+  width: 48px;
+  height: 48px;
   justify-content: center;
   align-items: center;
   display: flex;
   margin: 0;
   cursor: pointer;
   font-size: 16px;
-  border-radius: 10px;
+  border-radius: 12px;
   color: white;
   &:hover {
     background: #ffffff22;
@@ -111,23 +110,28 @@ export const StyledLoadingIndicator = styled.div<{$active: boolean}>`
 
 export const Controls = styled.div`
   width: 100%;
-  background: rgb(26, 27, 40);
-  padding: 20px;
+  background: linear-gradient(180deg, rgba(26, 27, 40, 0.98), rgba(18, 19, 29, 0.98));
+  padding: 14px;
   color: white;
-  border-radius: 10px;
+  border-radius: 18px;
   z-index: 6;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  & > div {
+    width: 100%;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
 
   @media (max-width: 800px) {
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  @media (min-width: 800px) {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    height: 80px;
+    padding: 12px;
+
+    & > div {
+      flex-direction: column;
+      align-items: stretch;
+    }
   }
 `
 
@@ -138,8 +142,9 @@ export const MetaControls = styled.div`
   width: 100%;
   padding: 10px;
   display: flex;
-  justify-content: left;
-  align-items: left;
+  gap: 8px;
+  justify-content: flex-start;
+  align-items: center;
   z-index: 6;
 `
 
