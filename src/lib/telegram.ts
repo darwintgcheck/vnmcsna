@@ -8,44 +8,62 @@ declare global {
   }
 }
 
+function getUrlTelegramData() {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('tgWebAppData') || ''
+  } catch {
+    return ''
+  }
+}
+
 export function getTelegramWebApp() {
   return window.Telegram?.WebApp ?? null
+}
+
+export function getTelegramInitData() {
+  const webApp = getTelegramWebApp()
+  return String(webApp?.initData || getUrlTelegramData() || '')
+}
+
+export function getTelegramUnsafeUser(): TelegramWebAppUser | null {
+  const webApp = getTelegramWebApp()
+  const unsafeUser = webApp?.initDataUnsafe?.user
+  if (unsafeUser?.id) {
+    return unsafeUser
+  }
+
+  try {
+    const rawUser = new URLSearchParams(getTelegramInitData()).get('user')
+    return rawUser ? JSON.parse(rawUser) : null
+  } catch {
+    return null
+  }
 }
 
 export function isTelegramMiniApp() {
   const webApp = getTelegramWebApp()
   if (!webApp) return false
 
-  // telegram-web-app.js is loaded unconditionally via a <script> tag, so it
-  // injects a stub `window.Telegram.WebApp` object even when the page is
-  // opened in a normal browser (e.g. Safari), not inside Telegram itself.
-  // Only trust it as a real Mini App session when it actually carries launch
-  // data (initData) or a known platform, otherwise we get false positives
-  // that break the app for anyone opening the link outside Telegram.
-  const hasInitData = Boolean(webApp.initData)
+  const hasInitData = Boolean(getTelegramInitData())
+  const hasUnsafeUser = Boolean(getTelegramUnsafeUser()?.id)
   const hasPlatform = Boolean(webApp.platform) && webApp.platform !== 'unknown'
 
-  return hasInitData || hasPlatform
-}
-
-export function getTelegramInitData() {
-  return getTelegramWebApp()?.initData ?? ''
-}
-
-export function getTelegramUnsafeUser(): TelegramWebAppUser | null {
-  return getTelegramWebApp()?.initDataUnsafe?.user ?? null
+  return hasInitData || hasUnsafeUser || hasPlatform
 }
 
 export function prepareTelegramUi() {
   const webApp = getTelegramWebApp()
   if (!webApp) return
+
   try {
     webApp.ready?.()
     webApp.expand?.()
     webApp.disableVerticalSwipes?.()
     webApp.setHeaderColor?.('#08080d')
     webApp.setBackgroundColor?.('#08080d')
-    webApp.requestFullscreen?.()
+    webApp.BackButton?.hide?.()
+    webApp.MainButton?.hide?.()
   } catch {
     // noop
   }
@@ -71,5 +89,6 @@ export function telegramAlert(message: string) {
     webApp.showAlert(message)
     return
   }
+
   window.alert(message)
 }
