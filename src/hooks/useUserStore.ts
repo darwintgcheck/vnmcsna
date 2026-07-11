@@ -111,7 +111,7 @@ export const useUserStore = create<UserStore>()(
               return
             }
 
-            throw new Error('Telegram hesabı oxunmadı. Mini App-i bot daxilindən yenidən açın.')
+            throw new Error('Telegram account data could not be read. Please reopen the Mini App from the bot.')
           }
 
           const persistedUser = get().currentUser
@@ -131,7 +131,7 @@ export const useUserStore = create<UserStore>()(
           set({
             initialized: true,
             loading: false,
-            error: error?.message || 'İstifadəçi yüklənmədi',
+            error: error?.message || 'User could not be loaded',
           })
         }
       },
@@ -181,7 +181,7 @@ export const useUserStore = create<UserStore>()(
             applyUser(set, get, response.user)
           })
           .catch((error: any) => {
-            set({ error: error?.message || 'Balans sinxronlaşmadı' })
+            set({ error: error?.message || 'Balance could not be synced' })
           })
       },
       addBalance: (amount, reason = 'balance-add') => {
@@ -197,12 +197,12 @@ export const useUserStore = create<UserStore>()(
       },
       requestDeposit: async (amount) => {
         const current = get().currentUser
-        if (!current) throw new Error('İstifadəçi tapılmadı')
+        if (!current) throw new Error('User not found')
         return createDeposit({ telegramId: current.telegramId, amount })
       },
       requestWithdraw: async (amount) => {
         const current = get().currentUser
-        if (!current) throw new Error('İstifadəçi tapılmadı')
+        if (!current) throw new Error('User not found')
         const result = await createWithdraw({ telegramId: current.telegramId, amount })
 
         if (result.user) {
