@@ -1,5 +1,5 @@
 {
-  "name": "King Casino",
+  "name": "𝓚𝓲𝓷𝓰 𝓒𝓪𝓼𝓲𝓷𝓸",
   "short_name": "King",
   "start_url": "/",
   "display": "standalone",
@@ -7,7 +7,7 @@
   "lang": "az",
   "scope": "/",
   "theme_color": "#8C62FF",
-  "description": "King Casino Telegram Mini App",
+  "description": "𝓚𝓲𝓷𝓰 𝓒𝓪𝓼𝓲𝓷𝓸 Telegram Mini App",
   "icons": [
     {
       "src": "/icon-512.png",
