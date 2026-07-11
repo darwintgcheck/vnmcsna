@@ -1,4 +1,3 @@
-import React from 'react'
 import styled from 'styled-components'
 import { useUserStore } from '../hooks/useUserStore'
 import { Modal } from './Modal'
@@ -93,7 +92,7 @@ export default function ProfileModal({ onClose }: { onClose: () => void }) {
           <UserAvatar name={user.displayName} photoUrl={user.photoUrl} size={84} />
           <div>
             <ProfileName>{user.displayName || user.firstName}</ProfileName>
-            <ProfileSub>{user.username ? `@${user.username}` : 'Telegram istifadəçisi'}</ProfileSub>
+            <ProfileSub>{user.username ? `@${user.username}` : 'Telegram user'}</ProfileSub>
           </div>
         </ProfileHeader>
 
@@ -103,33 +102,33 @@ export default function ProfileModal({ onClose }: { onClose: () => void }) {
             <Value>{user.telegramId}</Value>
           </Row>
           <Row>
-            <Label>Ad</Label>
+            <Label>First name</Label>
             <Value>{renderText(user.firstName)}</Value>
           </Row>
           <Row>
-            <Label>Soyad</Label>
+            <Label>Last name</Label>
             <Value>{renderText(user.lastName)}</Value>
           </Row>
           <Row>
-            <Label>Profil şəkli</Label>
-            <Value>{user.photoUrl ? 'Mövcuddur' : 'Yoxdur'}</Value>
+            <Label>Profile photo</Label>
+            <Value>{user.photoUrl ? 'Available' : 'Not set'}</Value>
           </Row>
           <Row>
-            <Label>Real balans</Label>
+            <Label>Real balance</Label>
             <Value>{realBalance} ⭐</Value>
           </Row>
           <Row>
-            <Label>Ümumi deposit</Label>
+            <Label>Total deposits</Label>
             <Value>{Number(user.totalDeposited || 0).toFixed(2)} ⭐</Value>
           </Row>
           <Row>
-            <Label>Ümumi çıxarış</Label>
+            <Label>Total withdrawals</Label>
             <Value>{Number(user.totalWithdrawn || 0).toFixed(2)} ⭐</Value>
           </Row>
         </Grid>
 
         <Footer>
-          <Button onClick={onClose}>Bağla</Button>
+          <Button onClick={onClose}>Close</Button>
           <Button
             $danger
             onClick={() => {
@@ -137,7 +136,7 @@ export default function ProfileModal({ onClose }: { onClose: () => void }) {
               onClose()
             }}
           >
-            Çıxış
+            Log out
           </Button>
         </Footer>
       </Wrap>
