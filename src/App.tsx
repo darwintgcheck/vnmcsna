@@ -9,12 +9,15 @@ import Game from './sections/Game/Game'
 import Header from './sections/Header'
 import { MainWrapper } from './styles'
 
+const USER_REFRESH_INTERVAL_MS = 1500
+
 export default function App() {
   const init = useUserStore((state) => state.init)
   const initialized = useUserStore((state) => state.initialized)
   const loading = useUserStore((state) => state.loading)
   const user = useUserStore((state) => state.currentUser)
   const error = useUserStore((state) => state.error)
+  const refreshUser = useUserStore((state) => state.refreshUser)
 
   const [depositOpen, setDepositOpen] = React.useState(false)
   const [withdrawOpen, setWithdrawOpen] = React.useState(false)
@@ -22,6 +25,30 @@ export default function App() {
   React.useEffect(() => {
     init()
   }, [init])
+
+  React.useEffect(() => {
+    if (!user?.telegramId) return
+
+    const refresh = () => {
+      void refreshUser().catch(() => undefined)
+    }
+
+    const intervalId = window.setInterval(refresh, USER_REFRESH_INTERVAL_MS)
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        refresh()
+      }
+    }
+
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [refreshUser, user?.telegramId])
 
   return (
     <>
