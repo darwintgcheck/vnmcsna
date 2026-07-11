@@ -13,6 +13,7 @@ const Screen = styled.div`
   position: relative;
   width: 100%;
   min-height: 360px;
+  height: 100%;
   border-radius: 24px;
   overflow: hidden;
   background:
@@ -54,6 +55,10 @@ const TopInfo = styled.div`
   display: flex;
   justify-content: space-between;
   gap: 12px;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+  }
 `
 
 const Badge = styled.div`
@@ -214,8 +219,12 @@ const ActionButton = styled.button<{ $cashout?: boolean }>`
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const HOUSE_EDGE = 0.03
-const MAX_CRASH = 100
+const MAX_CRASH = 25
 const LIVE_POLL_MS = 3000
+const COUNTDOWN_SECONDS = 10
+const CRASH_PAUSE_MS = 2500
+
+type Phase = 'countdown' | 'flying' | 'crashed'
 
 function generateCrashPoint() {
   const seed = Math.random()
@@ -230,23 +239,39 @@ export default function CrashGame() {
   const [autoCashoutEnabled, setAutoCashoutEnabled] = React.useState(false)
   const [autoCashoutTarget, setAutoCashoutTarget] = React.useState(2)
   const [liveBettors, setLiveBettors] = React.useState(0)
-  const [roundActive, setRoundActive] = React.useState(false)
+  const [phase, setPhase] = React.useState<Phase>('countdown')
+  const [countdown, setCountdown] = React.useState(COUNTDOWN_SECONDS)
+  const [queued, setQueued] = React.useState(false)
+  const [queuedWager, setQueuedWager] = React.useState(0)
   const [cashedOut, setCashedOut] = React.useState(false)
+  const [cashoutMultiplier, setCashoutMultiplier] = React.useState<number | null>(null)
   const [currentMultiplier, setCurrentMultiplier] = React.useState(1)
   const [crashPoint, setCrashPoint] = React.useState<number | null>(null)
   const [activeWager, setActiveWager] = React.useState(0)
-  const [message, setMessage] = React.useState('Set a bet and launch the flight.')
+  const [message, setMessage] = React.useState('Next round starts in 10 seconds. Place your bet.')
   const [lastNet, setLastNet] = React.useState<number | null>(null)
 
   const animationFrameRef = React.useRef<number | null>(null)
+  const restartTimerRef = React.useRef<number | null>(null)
   const startTimeRef = React.useRef(0)
   const crashPointRef = React.useRef(1)
-  const settledRef = React.useRef(false)
+  const activeWagerRef = React.useRef(0)
   const currentUserIdRef = React.useRef<number | null>(currentUser?.telegramId || null)
 
   React.useEffect(() => {
     currentUserIdRef.current = currentUser?.telegramId || null
   }, [currentUser?.telegramId])
+
+  React.useEffect(() => {
+    activeWagerRef.current = activeWager
+  }, [activeWager])
+
+  const clearAnimation = React.useCallback(() => {
+    if (animationFrameRef.current) {
+      window.cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
+    }
+  }, [])
 
   const refreshLiveBettors = React.useCallback(async () => {
     try {
@@ -282,85 +307,162 @@ export default function CrashGame() {
 
     return () => {
       window.clearInterval(id)
-      if (animationFrameRef.current) window.cancelAnimationFrame(animationFrameRef.current)
+      clearAnimation()
+      if (restartTimerRef.current) {
+        window.clearTimeout(restartTimerRef.current)
+      }
       void syncPresence(false)
     }
-  }, [refreshLiveBettors, syncPresence])
+  }, [clearAnimation, refreshLiveBettors, syncPresence])
 
-  const finishRound = React.useCallback((finalMultiplier: number, didCashOut: boolean, payout = 0) => {
-    setRoundActive(false)
-    setCurrentMultiplier(finalMultiplier)
-    setCashedOut(didCashOut)
-    settledRef.current = true
-    void syncPresence(false)
-
-    if (didCashOut) {
-      setLastNet(payout - activeWager)
-      setMessage(`Cashed out at ${finalMultiplier.toFixed(2)}x for ${payout} ⭐.`)
-    } else {
-      setLastNet(-activeWager)
-      setMessage(`The flight crashed at ${finalMultiplier.toFixed(2)}x.`)
-    }
-  }, [activeWager, syncPresence])
-
-  const performCashout = React.useCallback((multiplier: number) => {
-    if (!roundActive || cashedOut || settledRef.current) return
-    const payout = Math.max(0, Math.round(activeWager * multiplier))
-    setCashedOut(true)
-    addBalance(payout, 'crash-win')
-    finishRound(multiplier, true, payout)
-  }, [activeWager, addBalance, cashedOut, finishRound, roundActive])
-
-  const animate = React.useCallback((now: number) => {
-    if (!startTimeRef.current) startTimeRef.current = now
-    const elapsed = now - startTimeRef.current
-    const growth = 1 + elapsed / 1700 + Math.pow(elapsed / 2600, 1.6)
-    const nextMultiplier = Number(Math.max(1, growth).toFixed(2))
-
-    if (autoCashoutEnabled && !cashedOut && nextMultiplier >= autoCashoutTarget) {
-      performCashout(autoCashoutTarget)
+  React.useEffect(() => {
+    if (queued && phase === 'countdown') {
+      void syncPresence(true, autoCashoutTarget, queuedWager || wager)
       return
     }
 
+    void syncPresence(false)
+  }, [autoCashoutTarget, phase, queued, queuedWager, syncPresence, wager])
+
+  React.useEffect(() => {
+    if (phase !== 'countdown') return
+    if (countdown <= 0) return
+
+    const timer = window.setTimeout(() => {
+      setCountdown((value) => value - 1)
+    }, 1000)
+
+    return () => window.clearTimeout(timer)
+  }, [countdown, phase])
+
+  const resetToCountdown = React.useCallback(() => {
+    clearAnimation()
+    setPhase('countdown')
+    setCountdown(COUNTDOWN_SECONDS)
+    setCurrentMultiplier(1)
+    setCrashPoint(null)
+    setActiveWager(0)
+    setCashedOut(false)
+    setCashoutMultiplier(null)
+    setMessage('Next round starts in 10 seconds. Place your bet.')
+  }, [clearAnimation])
+
+  const settleCrash = React.useCallback((finalMultiplier: number) => {
+    clearAnimation()
+    setPhase('crashed')
+    setCurrentMultiplier(finalMultiplier)
+    setCrashPoint(finalMultiplier)
+
+    if (activeWagerRef.current > 0 && !cashedOut) {
+      setLastNet(-activeWagerRef.current)
+      setMessage(`Flight crashed at ${finalMultiplier.toFixed(2)}x. Your bet was lost.`)
+    } else if (cashoutMultiplier !== null) {
+      setMessage(`You cashed out at ${cashoutMultiplier.toFixed(2)}x. Round crashed at ${finalMultiplier.toFixed(2)}x.`)
+    } else {
+      setMessage(`Round crashed at ${finalMultiplier.toFixed(2)}x. Queue the next round now.`)
+    }
+
+    restartTimerRef.current = window.setTimeout(() => {
+      resetToCountdown()
+    }, CRASH_PAUSE_MS)
+  }, [cashoutMultiplier, cashedOut, clearAnimation, resetToCountdown])
+
+  const performCashout = React.useCallback((multiplier: number) => {
+    if (phase !== 'flying' || activeWagerRef.current <= 0 || cashedOut) return
+    const payout = Math.max(0, Math.round(activeWagerRef.current * multiplier))
+    addBalance(payout, 'crash-win')
+    setCashedOut(true)
+    setCashoutMultiplier(multiplier)
+    setLastNet(payout - activeWagerRef.current)
+    setMessage(`Cashed out at ${multiplier.toFixed(2)}x for ${payout} ⭐. Waiting for the crash…`)
+  }, [addBalance, cashedOut, phase])
+
+  const animate = React.useCallback((now: number) => {
+    if (!startTimeRef.current) startTimeRef.current = now
+    const elapsedSeconds = (now - startTimeRef.current) / 1000
+    const growth = Math.exp(elapsedSeconds / 10)
+    const nextMultiplier = Number(Math.max(1, growth).toFixed(2))
+
+    if (autoCashoutEnabled && !cashedOut && activeWagerRef.current > 0 && nextMultiplier >= autoCashoutTarget) {
+      performCashout(autoCashoutTarget)
+    }
+
     if (nextMultiplier >= crashPointRef.current) {
-      finishRound(crashPointRef.current, false)
+      settleCrash(crashPointRef.current)
       return
     }
 
     setCurrentMultiplier(nextMultiplier)
     animationFrameRef.current = window.requestAnimationFrame(animate)
-  }, [autoCashoutEnabled, autoCashoutTarget, cashedOut, finishRound, performCashout])
+  }, [autoCashoutEnabled, autoCashoutTarget, cashedOut, performCashout, settleCrash])
 
-  const startRound = () => {
-    const nextWager = Math.max(1, Math.round(Number(wager) || 1))
-    const nextTarget = Number(clamp(Number(autoCashoutTarget || 2), 1.1, 20).toFixed(2))
-    setWager(nextWager)
-    setAutoCashoutTarget(nextTarget)
+  const launchRound = React.useCallback(() => {
+    let nextActiveWager = 0
 
-    if (!withdrawBalance(nextWager, 'crash-bet')) {
-      setMessage('Not enough balance to launch this flight.')
-      setLastNet(null)
-      return
+    if (queued) {
+      const normalizedWager = Math.max(1, Math.round(Number(queuedWager || wager) || 1))
+      if (!withdrawBalance(normalizedWager, 'crash-bet')) {
+        setQueued(false)
+        setQueuedWager(0)
+        setMessage('Not enough balance for the queued bet. Update the amount and try again.')
+      } else {
+        nextActiveWager = normalizedWager
+      }
     }
 
     const nextCrashPoint = generateCrashPoint()
     crashPointRef.current = nextCrashPoint
     setCrashPoint(nextCrashPoint)
-    startTimeRef.current = 0
-    settledRef.current = false
-    setCurrentMultiplier(1)
-    setRoundActive(true)
+    setPhase('flying')
+    setQueued(false)
+    setQueuedWager(0)
     setCashedOut(false)
-    setActiveWager(nextWager)
+    setCashoutMultiplier(null)
+    setActiveWager(nextActiveWager)
     setLastNet(null)
-    setMessage(autoCashoutEnabled ? `Flight started with auto cash out at ${nextTarget.toFixed(2)}x.` : 'Flight started. Cash out manually at any time.')
-    void syncPresence(true, nextTarget, nextWager)
-
-    if (animationFrameRef.current) window.cancelAnimationFrame(animationFrameRef.current)
+    setCurrentMultiplier(1)
+    setCountdown(0)
+    startTimeRef.current = 0
+    setMessage(nextActiveWager > 0 ? 'Flight started. Cash out before the crash.' : 'Round is live. You are watching this flight.')
+    clearAnimation()
+    void syncPresence(false)
     animationFrameRef.current = window.requestAnimationFrame(animate)
+  }, [animate, clearAnimation, queued, queuedWager, syncPresence, wager, withdrawBalance])
+
+  React.useEffect(() => {
+    if (phase === 'countdown' && countdown <= 0) {
+      launchRound()
+    }
+  }, [countdown, launchRound, phase])
+
+  const queueBet = () => {
+    const nextWager = Math.max(1, Math.round(Number(wager) || 1))
+    const nextTarget = Number(clamp(Number(autoCashoutTarget || 2), 1.1, 20).toFixed(2))
+    setWager(nextWager)
+    setAutoCashoutTarget(nextTarget)
+
+    if (nextWager > balance) {
+      setMessage('Not enough balance to queue this bet.')
+      return
+    }
+
+    setQueued(true)
+    setQueuedWager(nextWager)
+    setMessage(`Bet of ${nextWager} ⭐ queued. Round starts in ${countdown}s.`)
   }
 
-  const progress = clamp((currentMultiplier - 1) / Math.max((crashPoint || 2) - 1, 0.2), 0, 1)
+  const cancelQueuedBet = () => {
+    setQueued(false)
+    setQueuedWager(0)
+    setMessage('Queued bet cancelled. You can set a new bet before launch.')
+  }
+
+  const progress = clamp((currentMultiplier - 1) / Math.max((crashPoint || 4) - 1, 0.5), 0, 1)
+  const statusLabel = phase === 'countdown'
+    ? `Next flight in ${countdown}s`
+    : phase === 'flying'
+      ? 'Flight in progress'
+      : 'Round crashed'
 
   return (
     <>
@@ -368,15 +470,19 @@ export default function CrashGame() {
         <Screen>
           <GridGlow $progress={progress} />
           <TopInfo>
-            <Badge>{roundActive ? 'Flight in progress' : cashedOut ? 'Cashed out' : 'Ready to launch'}</Badge>
+            <Badge>
+              {statusLabel}
+              <br />
+              {queued ? `Queued bet: ${queuedWager} ⭐` : activeWager > 0 ? `Active bet: ${activeWager} ⭐` : 'Observer mode'}
+            </Badge>
             <Badge>
               Live bettors: {liveBettors}
               <br />
-              Active bet: {activeWager || 0} ⭐
+              Auto cash out: {autoCashoutEnabled ? `${autoCashoutTarget.toFixed(2)}x` : 'OFF'}
             </Badge>
           </TopInfo>
 
-          <Multiplier $crashed={!roundActive && Boolean(lastNet !== null && lastNet < 0)} $cashedOut={Boolean(cashedOut)}>
+          <Multiplier $crashed={phase === 'crashed' && !cashedOut} $cashedOut={Boolean(cashedOut)}>
             {currentMultiplier.toFixed(2)}x
           </Multiplier>
           <Plane $progress={progress}>✈️</Plane>
@@ -421,17 +527,32 @@ export default function CrashGame() {
 
           <ActionButton
             type="button"
-            $cashout={roundActive && !cashedOut}
-            disabled={(!roundActive && wager > balance) || (roundActive && cashedOut)}
+            $cashout={phase === 'flying' && activeWager > 0 && !cashedOut}
+            disabled={phase === 'crashed' || (phase === 'flying' && (activeWager <= 0 || cashedOut))}
             onClick={() => {
-              if (roundActive) {
-                performCashout(currentMultiplier)
+              if (phase === 'countdown') {
+                if (queued) {
+                  cancelQueuedBet()
+                  return
+                }
+                queueBet()
                 return
               }
-              startRound()
+
+              if (phase === 'flying') {
+                performCashout(currentMultiplier)
+              }
             }}
           >
-            {roundActive ? `Cash Out ${Math.round(activeWager * currentMultiplier)} ⭐` : 'Place Bet'}
+            {phase === 'countdown'
+              ? queued
+                ? `Cancel ${queuedWager} ⭐`
+                : 'Join Next Round'
+              : phase === 'flying'
+                ? activeWager > 0 && !cashedOut
+                  ? `Cash Out ${Math.round(activeWager * currentMultiplier)} ⭐`
+                  : 'Flight in progress'
+                : 'Waiting for next round'}
           </ActionButton>
         </Controls>
       </GambaUi.Portal>
