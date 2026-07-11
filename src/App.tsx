@@ -2,6 +2,7 @@ import React from 'react'
 import { Route, Routes } from 'react-router-dom'
 import AuthModal from './components/AuthModal'
 import DepositModal from './components/DepositModal'
+import ProfileModal from './components/ProfileModal'
 import WithdrawModal from './components/WithdrawModal'
 import { useUserStore } from './hooks/useUserStore'
 import Dashboard from './sections/Dashboard/Dashboard'
@@ -21,6 +22,7 @@ export default function App() {
 
   const [depositOpen, setDepositOpen] = React.useState(false)
   const [withdrawOpen, setWithdrawOpen] = React.useState(false)
+  const [profileOpen, setProfileOpen] = React.useState(false)
 
   React.useEffect(() => {
     init()
@@ -52,9 +54,22 @@ export default function App() {
 
   return (
     <>
-      <Header openDeposit={() => setDepositOpen(true)} openWithdraw={() => setWithdrawOpen(true)} />
+      <Header openProfile={() => setProfileOpen(true)} />
       {depositOpen && <DepositModal onClose={() => setDepositOpen(false)} />}
       {withdrawOpen && <WithdrawModal onClose={() => setWithdrawOpen(false)} />}
+      {profileOpen && (
+        <ProfileModal
+          onClose={() => setProfileOpen(false)}
+          onDeposit={() => {
+            setProfileOpen(false)
+            setDepositOpen(true)
+          }}
+          onWithdraw={() => {
+            setProfileOpen(false)
+            setWithdrawOpen(true)
+          }}
+        />
+      )}
       {!loading && initialized && !user && <AuthModal />}
       <MainWrapper>
         {loading && <p style={{ textAlign: 'center' }}>Loading…</p>}
