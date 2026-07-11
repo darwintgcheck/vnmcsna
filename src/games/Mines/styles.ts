@@ -5,26 +5,20 @@ const tickingAnimation = keyframes`
   0%, 50%, 100% {
     transform: scale(1);
     filter: brightness(1);
-    /* background: #764cc4; */
-    /* box-shadow: 0 0 1px 1px #ffffff00; */
   }
   25% {
     transform: scale(0.95);
     filter: brightness(1.5);
-    /* background: #945ef7; */
-    /* box-shadow: 0 0 1px 1px #ffffff99; */
   }
 `
 
 const goldReveal = keyframes`
   0% {
     filter: brightness(1);
-    /* background: #ffffff; */
     transform: scale(1.1);
   }
   75% {
     filter: brightness(2);
-    /* background: #3fff7a; */
     transform: scale(1.2);
   }
 `
@@ -42,19 +36,12 @@ const mineReveal = keyframes`
   }
 `
 
-const hoverPulse = keyframes`
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-`
-
 export const Container2 = styled.div`
   display: grid;
   grid-template-rows: auto auto 1fr;
-  height: 100%;
+  gap: 12px;
+  min-height: 100%;
+  padding: 18px;
 `
 
 export const Container = styled.div`
@@ -71,37 +58,51 @@ export const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(4, 1fr);
-  gap: 8px;
+  gap: 10px;
 `
 
 export const Levels = styled.div`
-  border-radius: 5px;
+  border-radius: 18px;
   color: gray;
-  background: #292a307d;
-  overflow: hidden;
+  background: rgba(41, 42, 48, 0.72);
+  overflow-x: auto;
   width: 100%;
   display: flex;
-  align-items: center;
-  overflow: hidden;
-  height: 50px;
+  align-items: stretch;
+  min-height: 62px;
+  padding: 6px;
+  gap: 6px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 `
 
 export const Level = styled.div<{$active: boolean}>`
-  margin: 0 auto;
-  width: 25%;
+  flex: 0 0 96px;
   text-align: center;
-  padding: 5px 0;
-  opacity: .5;
-  text-wrap: nowrap;
+  padding: 10px 8px;
+  opacity: .7;
+  border-radius: 14px;
+  color: #d9dceb;
+  background: rgba(255, 255, 255, 0.03);
 
   & > div:first-child {
-    font-size: 60%;
-    color: gray;
+    font-size: 11px;
+    color: #9ea6c7;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  & > div:last-child {
+    margin-top: 4px;
+    font-weight: 800;
   }
 
   ${(props) => props.$active && css`
-    background: #FFFFFF11;
-    background: 2px 0px 10px #00000033;
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
     color: #32cd5e;
     opacity: 1;
   `}
@@ -116,10 +117,11 @@ export const CellButton = styled.button<{status: CellStatus, selected: boolean}>
   background-size: 100%;
   border: none;
   border-bottom: 5px solid #00000055;
-  border-radius: 4px;
+  border-radius: 10px;
   font-weight: bold;
   aspect-ratio: 1;
-  width: 60px;
+  width: min(72px, 18vw);
+  min-width: 58px;
   transition: background 0.3s, opacity .3s, filter .2s ease;
   font-size: 12px;
   cursor: pointer;
@@ -132,6 +134,7 @@ export const CellButton = styled.button<{status: CellStatus, selected: boolean}>
 
   ${(props) => props.status === 'gold' && css`
     color: white;
+    background: linear-gradient(180deg, #25d366, #138a4d);
     animation: ${goldReveal} .5s ease;
     opacity: 1;
   `}
@@ -154,7 +157,7 @@ export const CellButton = styled.button<{status: CellStatus, selected: boolean}>
   }
 
   &:hover:not(:disabled) {
-    filter: brightness(1.5);
+    filter: brightness(1.12);
   }
 `
 
@@ -163,9 +166,11 @@ export const StatusBar = styled.div`
   display: flex;
   justify-content: space-between;
   color: white;
+
   & > div:first-child {
     display: flex;
     color: #ffffffCC;
     gap: 20px;
+    flex-wrap: wrap;
   }
 `
