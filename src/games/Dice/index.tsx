@@ -2,10 +2,11 @@ import { GambaUi, useSound } from 'gamba-react-ui-v2'
 import React from 'react'
 import styled from 'styled-components'
 import { useUserStore } from '../hooks/useUserStore'
-import { didPlayerWin } from '../../utils/houseEdge'
 import CustomSlider from './Slider'
 import { SOUND_LOSE, SOUND_PLAY, SOUND_TICK, SOUND_WIN } from './constants'
 import { Container, Result, RollUnder, Stats } from './styles'
+
+const HOUSE_EDGE = 0.01
 
 const WagerInput = styled.input`
   width: 100%;
@@ -36,6 +37,8 @@ const PlayButton = styled.button`
   }
 `
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
 export default function Dice() {
   const { balance, withdrawBalance, addBalance } = useUserStore()
   const [wager, setWager] = React.useState(10)
@@ -50,8 +53,8 @@ export default function Dice() {
     tick: SOUND_TICK,
   })
 
-  const playerChance = 35
-  const multiplier = Number((100 / playerChance).toFixed(2))
+  const playerChance = clamp(Math.round(rollUnderIndex), 5, 95)
+  const multiplier = Number((((100 - HOUSE_EDGE * 100) / playerChance)).toFixed(2))
   const maxWin = Math.round(multiplier * wager)
   const canPlay = !isPlaying && wager > 0 && wager <= balance
 
@@ -65,10 +68,10 @@ export default function Dice() {
     sounds.play('play')
     setIsPlaying(true)
 
-    const won = didPlayerWin()
-    const resultNum = won ? Math.floor(Math.random() * rollUnderIndex) : Math.floor(Math.random() * (100 - rollUnderIndex) + rollUnderIndex)
+    const rolledValue = Math.floor(Math.random() * 100)
+    const won = rolledValue < playerChance
 
-    setResultIndex(resultNum)
+    setResultIndex(rolledValue)
 
     window.setTimeout(() => {
       if (won) {
@@ -89,7 +92,7 @@ export default function Dice() {
           <Container>
             <RollUnder>
               <div>
-                <div>{rollUnderIndex}</div>
+                <div>{playerChance}</div>
                 <div>Roll under</div>
               </div>
             </RollUnder>
@@ -110,7 +113,7 @@ export default function Dice() {
             <div style={{ position: 'relative' }}>
               {resultIndex > -1 && (
                 <Result style={{ left: `${(resultIndex / 99) * 100}%` }}>
-                  <div key={resultIndex}>{resultIndex + 1}</div>
+                  <div key={resultIndex}>{resultIndex}</div>
                 </Result>
               )}
               <CustomSlider
@@ -118,7 +121,7 @@ export default function Dice() {
                 range={[0, 100]}
                 min={5}
                 max={95}
-                value={rollUnderIndex}
+                value={playerChance}
                 onChange={(value) => {
                   setRollUnderIndex(value)
                   sounds.play('tick')
