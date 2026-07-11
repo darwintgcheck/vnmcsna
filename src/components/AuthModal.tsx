@@ -1,8 +1,5 @@
-import React from 'react'
 import styled from 'styled-components'
-import { authDev } from '../lib/api'
-import { isTelegramMiniApp, getTelegramUnsafeUser, telegramAlert } from '../lib/telegram'
-import { useUserStore } from '../hooks/useUserStore'
+import { getTelegramUnsafeUser, isTelegramMiniApp } from '../lib/telegram'
 
 const Overlay = styled.div`
   position: fixed;
@@ -46,175 +43,47 @@ const Text = styled.p`
   font-size: 14px;
 `
 
-const Input = styled.input`
+const Button = styled.button`
   width: 100%;
-  margin-top: 12px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
-  color: #fff;
-  outline: none;
-  
-  &::placeholder {
-    color: rgba(255,255,255,0.5);
-  }
-`
-
-const Button = styled.button<{ $accent?: boolean; $full?: boolean }>`
-  width: ${({ $full }) => ($full ? '100%' : 'auto')};
   margin-top: 12px;
   padding: 12px 16px;
   border-radius: 12px;
   border: none;
-  background: ${({ $accent }) => ($accent ? 'linear-gradient(90deg, #8c62ff, #5ee7ff)' : 'rgba(255,255,255,0.08)')};
-  color: ${({ $accent }) => ($accent ? '#05050b' : '#fff')};
+  background: linear-gradient(90deg, #8c62ff, #5ee7ff);
+  color: #05050b;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
-  
-  &:hover:not(:disabled) {
+
+  &:hover {
     opacity: 0.9;
-  }
-  
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`
-
-const ButtonGroup = styled.div`
-  display: flex;
-  gap: 8px;
-  margin-top: 16px;
-  flex-direction: column;
-`
-
-const Divider = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 16px 0;
-  
-  &::before,
-  &::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: rgba(255,255,255,0.12);
   }
 `
 
 export default function AuthModal() {
-  const setUser = useUserStore((state) => state.setUser)
-  const set = useUserStore((state) => state.set)
-  const [mode, setMode] = React.useState<'login' | 'register'>('login')
-  const [telegramId, setTelegramId] = React.useState('')
-  const [firstName, setFirstName] = React.useState('')
-  const [email, setEmail] = React.useState('')
-  const [busy, setBusy] = React.useState(false)
-
   const isMiniApp = isTelegramMiniApp()
   const tgUser = getTelegramUnsafeUser()
-  const [miniAppAttempted, setMiniAppAttempted] = React.useState(false)
-
-  React.useEffect(() => {
-    if (tgUser?.id) {
-      setTelegramId(String(tgUser.id))
-      setFirstName(tgUser.first_name || '')
-    }
-  }, [tgUser])
-
-  const devLogin = async () => {
-    try {
-      setBusy(true)
-      
-      if (!telegramId) {
-        telegramAlert('Telegram ID lazımdır')
-        return
-      }
-
-      const payload = {
-        telegramId: Number(telegramId),
-        firstName: firstName || 'Istifadəçi',
-        username: tgUser?.username || undefined,
-      }
-      
-      window.localStorage.setItem('venom-dev-user', JSON.stringify(payload))
-      const response = await authDev(payload)
-      setUser(response.user)
-      set({ config: response.config, error: null })
-    } catch (error: any) {
-      console.error('Auth error:', error)
-      telegramAlert(error?.message || 'Giriş alınmadı')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  React.useEffect(() => {
-    if (isMiniApp && tgUser?.id && !miniAppAttempted) {
-      setMiniAppAttempted(true)
-      devLogin()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMiniApp, tgUser?.id, miniAppAttempted])
 
   if (isMiniApp) {
-    // Telegram user data found: we're auto-logging in, just show a spinner state.
     if (tgUser?.id) {
       return (
         <Overlay>
           <Card>
             <Logo alt="Venom Kazino" src="/logo.svg" />
             <Title>Venom Kazino</Title>
-            <Text>
-              Telegram hesabınız oxunur, giriş edilir...
-            </Text>
+            <Text>Telegram hesabınız oxunur və avtomatik giriş edilir...</Text>
           </Card>
         </Overlay>
       )
     }
 
-    // Genuinely no Telegram launch data available: offer a retry and a manual fallback
-    // instead of a permanent dead end.
     return (
       <Overlay>
         <Card>
           <Logo alt="Venom Kazino" src="/logo.svg" />
           <Title>Venom Kazino</Title>
-          <Text>
-            Telegram hesabınız oxunmadı. Əgər giriş açılmırsa, mini app-i bot daxilindən yenidən başladın.
-          </Text>
-          <Button $accent $full onClick={() => window.location.reload()}>
-            🔄 Yenidən cəhd et
-          </Button>
-
-          <Divider>və ya</Divider>
-
-          <Text style={{ fontSize: '12px' }}>
-            Test məqsədi ilə giriş:
-          </Text>
-          <Input
-            value={telegramId}
-            onChange={(e) => setTelegramId(e.target.value)}
-            type="number"
-            placeholder="Telegram ID (rəqəm)"
-          />
-          <Input
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            placeholder="Adınız"
-          />
-          <Button
-            $accent
-            $full
-            onClick={devLogin}
-            disabled={busy || !telegramId}
-            style={{ marginTop: '14px' }}
-          >
-            {busy ? '⏳ Giriş edilir...' : 'Test girişi'}
-          </Button>
+          <Text>Telegram hesabı oxunmadı. Mini App-i birbaşa bot daxilindən yenidən açın.</Text>
+          <Button onClick={() => window.location.reload()}>Yenidən cəhd et</Button>
         </Card>
       </Overlay>
     )
@@ -225,64 +94,8 @@ export default function AuthModal() {
       <Card>
         <Logo alt="Venom Kazino" src="/logo.svg" />
         <Title>Venom Kazino</Title>
-        <Text>
-          Telegram Stars ilə oyun oynayın və qazanın.
-        </Text>
-
-        {tgUser ? (
-          <>
-            <Text style={{ fontSize: '12px', color: '#8c62ff', marginBottom: '12px' }}>
-              ✅ Telegram hesabı tanındı: @{tgUser.username || tgUser.first_name}
-            </Text>
-            <Button $accent $full onClick={devLogin} disabled={busy}>
-              {busy ? '⏳ Giriş edilir...' : '📱 Telegram ilə giriş'}
-            </Button>
-          </>
-        ) : (
-          <>
-            <ButtonGroup>
-              <Button 
-                $accent 
-                $full 
-                onClick={() => window.open('https://t.me/venom_kazino_bot', '_blank')}
-              >
-                📱 Telegram Bot
-              </Button>
-              <Button 
-                $full 
-                onClick={() => window.open('https://accounts.google.com', '_blank')}
-              >
-                📧 Gmail ilə giriş
-              </Button>
-            </ButtonGroup>
-            
-            <Divider>test</Divider>
-
-            <Text style={{ fontSize: '12px' }}>
-              Test məqsədi ilə giriş:
-            </Text>
-            <Input 
-              value={telegramId} 
-              onChange={(e) => setTelegramId(e.target.value)} 
-              type="number" 
-              placeholder="Telegram ID (rəqəm)" 
-            />
-            <Input 
-              value={firstName} 
-              onChange={(e) => setFirstName(e.target.value)} 
-              placeholder="Adınız" 
-            />
-            <Button 
-              $accent 
-              $full 
-              onClick={devLogin} 
-              disabled={busy || !telegramId}
-              style={{ marginTop: '14px' }}
-            >
-              {busy ? '⏳ Giriş edilir...' : 'Test girişi'}
-            </Button>
-          </>
-        )}
+        <Text>Bu sayt yalnız Telegram Mini App daxilində Telegram hesabı ilə avtomatik açılır.</Text>
+        <Button onClick={() => window.location.reload()}>Səhifəni yenilə</Button>
       </Card>
     </Overlay>
   )
