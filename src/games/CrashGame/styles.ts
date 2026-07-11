@@ -228,6 +228,12 @@ export const CardLabel = styled.div`
   color: #98a7ce;
 `
 
+export const SummaryStat = styled.div`
+  font-size: 14px;
+  font-weight: 700;
+  color: #dbe8ff;
+`
+
 export const ValueRow = styled.div`
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) 44px;
@@ -272,6 +278,24 @@ export const QuickButton = styled.button`
   padding: 8px 12px;
   font-size: 13px;
   font-weight: 700;
+  cursor: pointer;
+`
+
+export const ToggleRow = styled.div`
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+`
+
+export const SwitchButton = styled.button<{ $active?: boolean }>`
+  min-height: 44px;
+  border: 1px solid ${({ $active }) => ($active ? 'rgba(94,231,255,0.45)' : 'rgba(255,255,255,0.12)')};
+  background: ${({ $active }) => ($active ? 'rgba(94,231,255,0.14)' : 'rgba(255,255,255,0.06)')};
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 800;
   cursor: pointer;
 `
 
