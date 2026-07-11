@@ -2,6 +2,7 @@ export type CellStatus = 'hidden' | 'gold' | 'mine'
 export interface CellState {
   status: CellStatus
   profit: number
+  isMine: boolean
 }
 export type GameStatus = 'playing' | 'idle' | 'lost'
 export type LoadState = 'playing' | 'claiming'
