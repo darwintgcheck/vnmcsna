@@ -1,26 +1,26 @@
-// src/games/HiLo.tsx
 import React from 'react'
 import { GambaUi, useSound } from 'gamba-react-ui-v2'
 import { useUserStore } from '../hooks/useUserStore'
-import { 
-  MAX_CARD_SHOWN, 
-  RANKS, 
-  RANK_SYMBOLS, 
-  SOUND_CARD, 
-  SOUND_FINISH, 
-  SOUND_LOSE, 
-  SOUND_PLAY, 
-  SOUND_WIN 
+import { didPlayerWin } from '../../utils/houseEdge'
+import {
+  MAX_CARD_SHOWN,
+  RANKS,
+  RANK_SYMBOLS,
+  SOUND_CARD,
+  SOUND_FINISH,
+  SOUND_LOSE,
+  SOUND_PLAY,
+  SOUND_WIN,
 } from './constants'
-import { 
-  Card, 
-  CardContainer, 
-  CardPreview, 
-  CardsContainer, 
-  Container, 
-  Option, 
-  Options, 
-  Profit 
+import {
+  Card,
+  CardContainer,
+  CardPreview,
+  CardsContainer,
+  Container,
+  Option,
+  Options,
+  Profit,
 } from './styles'
 
 const randomRank = () => 1 + Math.floor(Math.random() * (RANKS - 1))
@@ -58,27 +58,36 @@ export default function HiLo(props: HiLoConfig) {
     finish: SOUND_FINISH,
   })
 
-  const addCard = (rank: number) =>
-    setCards((cards) => [...cards, card(rank)].slice(-MAX_CARD_SHOWN))
+  const addCard = (rank: number) => setCards((prev) => [...prev, card(rank)].slice(-MAX_CARD_SHOWN))
+
+  const getNextRank = () => {
+    const won = didPlayerWin()
+    if (option === 'hi') {
+      const higher = Array.from({ length: RANKS - currentRank }, (_, index) => currentRank + index)
+      const lower = Array.from({ length: currentRank }, (_, index) => index)
+      return won ? higher[Math.floor(Math.random() * higher.length)] : lower[Math.floor(Math.random() * lower.length)]
+    }
+
+    const lower = Array.from({ length: currentRank + 1 }, (_, index) => index)
+    const higher = Array.from({ length: Math.max(1, RANKS - currentRank - 1) }, (_, index) => currentRank + 1 + index)
+    return won ? lower[Math.floor(Math.random() * lower.length)] : higher[Math.floor(Math.random() * higher.length)]
+  }
 
   const play = async () => {
-    if (initialWager > balance) return alert('Balans kifayət etmir')
+    if (initialWager > balance) return alert('Not enough balance')
 
     sounds.play('play')
-    withdrawBalance(initialWager)
+    withdrawBalance(initialWager, 'hilo-bet')
 
-    // Random nəticə
-    const nextRank = randomRank()
+    const nextRank = getNextRank()
     addCard(nextRank)
 
-    const win =
-      (option === 'hi' && nextRank >= currentRank) ||
-      (option === 'lo' && nextRank <= currentRank)
+    const won = (option === 'hi' && nextRank >= currentRank) || (option === 'lo' && nextRank <= currentRank)
 
     setTimeout(() => {
-      if (win) {
-        const payout = initialWager * 2 // sadələşdirilmiş payout
-        addBalance(payout)
+      if (won) {
+        const payout = initialWager * 2
+        addBalance(payout, 'hilo-win')
         setProfit(payout)
         sounds.play('win')
       } else {
@@ -105,45 +114,32 @@ export default function HiLo(props: HiLoConfig) {
           <Container $disabled={claiming}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
               <CardsContainer>
-                {cards.map((card, i) => {
+                {cards.map((currentCard, i) => {
                   const offset = -(cards.length - (i + 1))
                   const xxx = cards.length > 3 ? i / cards.length : 1
                   const opacity = Math.min(1, xxx * 3)
                   return (
                     <CardContainer
-                      key={card.key}
+                      key={currentCard.key}
                       style={{
                         transform: `translate(${offset * 30}px, ${-offset * 0}px) rotateZ(-5deg) rotateY(5deg)`,
                         opacity,
                       }}
                     >
                       <Card>
-                        <div className="rank">{RANK_SYMBOLS[card.rank]}</div>
-                        <div
-                          className="suit"
-                          style={{ backgroundImage: 'url(' + props.logo + ')' }}
-                        />
+                        <div className="rank">{RANK_SYMBOLS[currentCard.rank]}</div>
+                        <div className="suit" style={{ backgroundImage: 'url(' + props.logo + ')' }} />
                       </Card>
                     </CardContainer>
                   )
                 })}
               </CardsContainer>
               <Options>
-                <Option
-                  selected={option === 'hi'}
-                  onClick={() => setOption('hi')}
-                  onMouseEnter={() => hoverOption('hi')}
-                  onMouseLeave={() => hoverOption(undefined)}
-                >
+                <Option selected={option === 'hi'} onClick={() => setOption('hi')} onMouseEnter={() => hoverOption('hi')} onMouseLeave={() => hoverOption(undefined)}>
                   <div>👆</div>
                   <div>HI</div>
                 </Option>
-                <Option
-                  selected={option === 'lo'}
-                  onClick={() => setOption('lo')}
-                  onMouseEnter={() => hoverOption('lo')}
-                  onMouseLeave={() => hoverOption(undefined)}
-                >
+                <Option selected={option === 'lo'} onClick={() => setOption('lo')} onMouseEnter={() => hoverOption('lo')} onMouseLeave={() => hoverOption(undefined)}>
                   <div>👇</div>
                   <div>LO</div>
                 </Option>
@@ -151,12 +147,7 @@ export default function HiLo(props: HiLoConfig) {
             </div>
             <CardPreview>
               {Array.from({ length: RANKS }).map((_, rankIndex) => (
-                <Card
-                  key={rankIndex}
-                  $small
-                  style={{ opacity: 0.7 }}
-                  onClick={() => addCard(rankIndex)}
-                >
+                <Card key={rankIndex} $small style={{ opacity: hoveredOption ? 0.85 : 0.7 }}>
                   <div className="rank">{RANK_SYMBOLS[rankIndex]}</div>
                 </Card>
               ))}
@@ -172,10 +163,7 @@ export default function HiLo(props: HiLoConfig) {
       <GambaUi.Portal target="controls">
         {!profit ? (
           <>
-            <GambaUi.WagerInput
-              value={initialWager}
-              onChange={setInitialWager}
-            />
+            <GambaUi.WagerInput value={initialWager} onChange={setInitialWager} />
             <GambaUi.PlayButton disabled={!option} onClick={play}>
               Deal card
             </GambaUi.PlayButton>
