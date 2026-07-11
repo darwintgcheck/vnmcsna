@@ -3,19 +3,24 @@ import styled from 'styled-components'
 export const StyledSlots = styled.div`
   perspective: 100px;
   user-select: none;
+  width: 100%;
 
   & > div {
     display: grid;
-    gap: 20px;
+    gap: 18px;
     transform: rotateX(3deg) rotateY(0deg);
+    padding: 20px;
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(14, 16, 26, 0.96), rgba(8, 9, 15, 0.96));
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   @keyframes pulse {
     0%, 30% {
-      transform: scale(1)
+      transform: scale(1);
     }
     10% {
-      transform: scale(1.3)
+      transform: scale(1.3);
     }
   }
 
@@ -49,6 +54,7 @@ export const StyledSlots = styled.div`
       color: #ffec63;
     }
   }
+
   @keyframes result-flash-2 {
     0%, 50% {
       background-color: #ffec6388;
@@ -61,56 +67,53 @@ export const StyledSlots = styled.div`
   }
 
   .result {
-    border: none;
-    padding: 10px;
-    text-transform: uppercase;
-    position: relative;
-    padding: 10px;
     width: 100%;
-    border-radius: 10px;
-    border-spacing: 10px;
+    border-radius: 16px;
     border: 1px solid #ffec63;
     background-color: #ffec6311;
     color: #ffec63;
-    font-size: 14px;
-    font-weight: bold;
+    font-size: 15px;
+    font-weight: 800;
     text-align: center;
+    padding: 14px 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
   }
 
-  .result[data-good="true"] {
+  .result[data-good='true'] {
     animation: result-flash 5s infinite;
   }
 
   .slots {
     display: flex;
-    gap: 20px;
+    gap: 14px;
     justify-content: center;
     box-sizing: border-box;
     border-radius: 10px;
+    flex-wrap: wrap;
   }
 
   .slot::after {
-    content: "";
+    content: '';
     width: 100%;
     height: 100%;
     position: absolute;
     z-index: 1;
   }
 
-  @keyframes reveal {
-    0% {
-      transform: translateY(100%);
-      opacity: 0;
-    }
-    100% {
-      transform: translateY(0%);
-      opacity: 1;
-    }
-  }
-
   .slotImage {
-    aspect-ratio: 1/1;
+    aspect-ratio: 1 / 1;
     max-width: 100%;
     max-height: 100%;
+  }
+
+  @media (max-width: 640px) {
+    & > div {
+      padding: 16px;
+    }
+
+    .slots {
+      gap: 10px;
+    }
   }
 `
