@@ -1,8 +1,8 @@
 import { StoreApi, create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { authDev, authMiniApp, authTelegram, createDeposit, createWithdraw, fetchUser, syncBalance } from '../lib/api'
-import { getTelegramUnsafeUser, isTelegramMiniApp, prepareTelegramUi } from '../lib/telegram'
-import type { DepositRequestResult, PublicConfig, User, WithdrawRequestResult } from '../types'
+import { getTelegramInitData, getTelegramUnsafeUser, isTelegramMiniApp, prepareTelegramUi } from '../lib/telegram'
+import type { DepositRequestResult, GameResultSnapshot, PublicConfig, User, WithdrawRequestResult } from '../types'
 
 type GameMode = 'real' | 'demo'
 
@@ -20,6 +20,7 @@ interface UserStore {
   gameMode: GameMode
   activeGameId: string | null
   config: PublicConfig | null
+  gameResults: Record<string, GameResultSnapshot>
   set: StoreApi<UserStore>['setState']
   setUser: (user: User | null) => void
   init: () => Promise<void>
@@ -30,6 +31,8 @@ interface UserStore {
   withdrawBalance: (amount: number, reason?: string) => boolean
   requestDeposit: (amount: number) => Promise<DepositRequestResult>
   requestWithdraw: (amount: number) => Promise<WithdrawRequestResult>
+  recordGameResult: (gameId: string, net: number, label?: string) => void
+  clearGameResult: (gameId: string) => void
   logout: () => void
 }
 
@@ -66,6 +69,29 @@ const applyUser = (set: StoreApi<UserStore>['setState'], get: StoreApi<UserStore
   }))
 }
 
+const createSnapshot = (net: number, label?: string): GameResultSnapshot => ({
+  net: Math.round(net),
+  label,
+  updatedAt: new Date().toISOString(),
+})
+
+function updateActiveGameResult(get: StoreApi<UserStore>['getState'], set: StoreApi<UserStore>['setState'], delta: number, reason?: string) {
+  const state = get()
+  const gameId = state.activeGameId
+  if (!gameId || !Number.isFinite(delta) || !delta) return
+
+  set((current) => {
+    const previous = current.gameResults[gameId]
+    const nextNet = /-bet$/i.test(reason || '') ? delta : (previous?.net || 0) + delta
+    return {
+      gameResults: {
+        ...current.gameResults,
+        [gameId]: createSnapshot(nextNet, reason),
+      },
+    }
+  })
+}
+
 export const useUserStore = create<UserStore>()(
   persist(
     (set, get) => ({
@@ -80,6 +106,7 @@ export const useUserStore = create<UserStore>()(
       gameMode: 'real',
       activeGameId: null,
       config: null,
+      gameResults: {},
       set,
       setUser: (user) => applyUser(set, get, user),
       init: async () => {
@@ -89,11 +116,9 @@ export const useUserStore = create<UserStore>()(
         try {
           prepareTelegramUi()
           const unsafeUser = getTelegramUnsafeUser()
+          const initData = getTelegramInitData()
 
           if (isTelegramMiniApp()) {
-            const tg = (window as any).Telegram?.WebApp
-            const initData = String(tg?.initData || '')
-
             if (initData) {
               try {
                 const response = await authTelegram(initData)
@@ -101,7 +126,7 @@ export const useUserStore = create<UserStore>()(
                 set({ config: response.config, initialized: true, loading: false, error: null })
                 return
               } catch (telegramError: any) {
-                console.warn('Telegram auth failed, trying mini-app fallback:', telegramError)
+                console.warn('Telegram auth failed, falling back to mini-app auth:', telegramError)
               }
             }
 
@@ -123,7 +148,7 @@ export const useUserStore = create<UserStore>()(
               return
             }
 
-            throw new Error('Telegram account data could not be read. Please reopen the Mini App from the bot.')
+            throw new Error('Telegram account data could not be read. Please open the Mini App directly from the bot welcome button.')
           }
 
           const persistedUser = get().currentUser
@@ -159,14 +184,20 @@ export const useUserStore = create<UserStore>()(
         const nextDemoBalance = mode === 'demo' ? DEMO_START_BALANCE : get().demoBalance
         const nextRealBalance = normalizeBalance(currentUser?.balance ?? get().realBalance)
 
-        set({
+        set((state) => ({
           gameMode: mode,
           activeGameId: gameId || null,
           demoBalance: nextDemoBalance,
           realBalance: nextRealBalance,
           balance: mode === 'demo' ? nextDemoBalance : nextRealBalance,
           error: null,
-        })
+          gameResults: gameId
+            ? {
+                ...state.gameResults,
+                [gameId]: createSnapshot(0, 'ready'),
+              }
+            : state.gameResults,
+        }))
       },
       updateBalance: (nextBalance, reason = 'game-sync') => {
         const current = get().currentUser
@@ -199,11 +230,13 @@ export const useUserStore = create<UserStore>()(
       addBalance: (amount, reason = 'balance-add') => {
         const numericAmount = Number(amount || 0)
         if (numericAmount <= 0) return
+        updateActiveGameResult(get, set, numericAmount, reason)
         get().updateBalance(get().balance + numericAmount, reason)
       },
       withdrawBalance: (amount, reason = 'balance-withdraw') => {
         const numericAmount = Number(amount || 0)
         if (numericAmount <= 0 || get().balance < numericAmount) return false
+        updateActiveGameResult(get, set, -numericAmount, reason)
         get().updateBalance(get().balance - numericAmount, reason)
         return true
       },
@@ -223,12 +256,26 @@ export const useUserStore = create<UserStore>()(
           const nextUser = {
             ...current,
             balance: normalizeBalance(current.balance - amount),
-            totalWithdrawn: normalizeBalance((current.totalWithdrawn || 0) + result.netAmount),
           }
           applyUser(set, get, nextUser)
         }
 
         return result
+      },
+      recordGameResult: (gameId, net, label) => {
+        set((state) => ({
+          gameResults: {
+            ...state.gameResults,
+            [gameId]: createSnapshot(net, label),
+          },
+        }))
+      },
+      clearGameResult: (gameId) => {
+        set((state) => {
+          const nextResults = { ...state.gameResults }
+          delete nextResults[gameId]
+          return { gameResults: nextResults }
+        })
       },
       logout: () => {
         window.localStorage.removeItem('venom-user-store')
@@ -242,6 +289,7 @@ export const useUserStore = create<UserStore>()(
           activeGameId: null,
           balance: 0,
           config: null,
+          gameResults: {},
         })
       },
     }),
@@ -253,6 +301,7 @@ export const useUserStore = create<UserStore>()(
         user: state.user,
         realBalance: state.realBalance,
         config: state.config,
+        gameResults: state.gameResults,
       }),
     },
   ),
