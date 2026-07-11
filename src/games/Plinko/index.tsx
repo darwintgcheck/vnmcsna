@@ -2,6 +2,7 @@ import { GambaUi, useSound } from 'gamba-react-ui-v2'
 import React from 'react'
 import { PEG_RADIUS, PLINKO_RAIUS, Plinko as PlinkoGame, PlinkoProps, barrierHeight, barrierWidth, bucketHeight } from './game'
 import { useUserStore } from '../hooks/useUserStore'
+import { didPlayerWin, pickRandom } from '../../utils/houseEdge'
 
 import BUMP from './bump.mp3'
 import FALL from './fall.mp3'
@@ -26,7 +27,7 @@ export default function Plinko() {
   const [wager, setWager] = React.useState(1)
   const [debug, setDebug] = React.useState(false)
   const [degen, setDegen] = React.useState(false)
-  const { balance, updateBalance } = useUserStore()
+  const { balance, withdrawBalance, addBalance } = useUserStore()
 
   const sounds = useSound({
     bump: BUMP,
@@ -47,31 +48,31 @@ export default function Plinko() {
     onContact(contact) {
       if (contact.peg && contact.plinko) {
         pegAnimations.current[contact.peg.plugin.pegIndex] = 1
-        sounds.play('bump', { playbackRate: 1 + Math.random() * .05 })
+        sounds.play('bump', { playbackRate: 1 + Math.random() * 0.05 })
       }
       if (contact.barrier && contact.plinko) {
-        sounds.play('bump', { playbackRate: .5 + Math.random() * .05 })
+        sounds.play('bump', { playbackRate: 0.5 + Math.random() * 0.05 })
       }
       if (contact.bucket && contact.plinko) {
         bucketAnimations.current[contact.bucket.plugin.bucketIndex] = 1
-        sounds.play(contact.bucket.plugin.bucketMultiplier >= 1 ? 'win' : 'fall')
+        sounds.play(contact.bucket.plugin.bucketMultiplier > 1 ? 'win' : 'fall')
       }
     },
   }, [rows, multipliers])
 
   const play = async () => {
-    if (balance < wager) {
-      alert("Balans kifayət deyil!")
+    if (!withdrawBalance(wager, 'plinko-bet')) {
+      alert('Not enough balance!')
       return
     }
 
-    updateBalance(balance - wager)
-
-    const multiplier = bet[Math.floor(Math.random() * bet.length)]
+    const winningMultipliers = bet.filter((value) => value > 1)
+    const losingMultipliers = bet.filter((value) => value <= 1)
+    const multiplier = didPlayerWin() ? pickRandom(winningMultipliers) : pickRandom(losingMultipliers)
     const payout = wager * multiplier
 
     if (payout > 0) {
-      updateBalance(balance - wager + payout)
+      addBalance(payout, 'plinko-win')
     }
 
     plinko.reset()
@@ -94,7 +95,7 @@ export default function Plinko() {
             ctx.fillStyle = '#0b0b13'
             ctx.fillRect(0, 0, size.width, size.height)
             ctx.save()
-            ctx.translate(size.width / 2 - plinko.width / 2 * s, size.height / 2 - plinko.height / 2 * s)
+            ctx.translate(size.width / 2 - (plinko.width / 2) * s, size.height / 2 - (plinko.height / 2) * s)
             ctx.scale(s, s)
 
             if (debug) {
@@ -117,11 +118,11 @@ export default function Plinko() {
                   ctx.translate(position.x, position.y)
                   const animation = pegAnimations.current[body.plugin.pegIndex] ?? 0
                   if (pegAnimations.current[body.plugin.pegIndex]) {
-                    pegAnimations.current[body.plugin.pegIndex] *= .9
+                    pegAnimations.current[body.plugin.pegIndex] *= 0.9
                   }
-                  ctx.scale(1 + animation * .4, 1 + animation * .4)
-                  const pegHue = (position.y + position.x + Date.now() * .05) % 360
-                  ctx.fillStyle = 'hsla(' + pegHue + ', 75%, 60%, ' + (1 + animation * 2) * .2 + ')'
+                  ctx.scale(1 + animation * 0.4, 1 + animation * 0.4)
+                  const pegHue = (position.y + position.x + Date.now() * 0.05) % 360
+                  ctx.fillStyle = 'hsla(' + pegHue + ', 75%, 60%, ' + (1 + animation * 2) * 0.2 + ')'
                   ctx.beginPath()
                   ctx.arc(0, 0, PEG_RADIUS + 4, 0, Math.PI * 2)
                   ctx.fill()
@@ -135,11 +136,11 @@ export default function Plinko() {
                 if (label === 'Plinko') {
                   ctx.save()
                   ctx.translate(position.x, position.y)
-                  ctx.fillStyle = 'hsla(' + (i * 420 % 360) + ', 75%, 90%, .2)'
+                  ctx.fillStyle = 'hsla(' + ((i * 420) % 360) + ', 75%, 90%, .2)'
                   ctx.beginPath()
                   ctx.arc(0, 0, PLINKO_RAIUS * 1.5, 0, Math.PI * 2)
                   ctx.fill()
-                  ctx.fillStyle = 'hsla(' + (i * 420 % 360) + ', 75%, 75%, 1)'
+                  ctx.fillStyle = 'hsla(' + ((i * 420) % 360) + ', 75%, 75%, 1)'
                   ctx.beginPath()
                   ctx.arc(0, 0, PLINKO_RAIUS, 0, Math.PI * 2)
                   ctx.fill()
@@ -148,12 +149,12 @@ export default function Plinko() {
                 if (label === 'Bucket') {
                   const animation = bucketAnimations.current[body.plugin.bucketIndex] ?? 0
                   if (bucketAnimations.current[body.plugin.bucketIndex]) {
-                    bucketAnimations.current[body.plugin.bucketIndex] *= .9
+                    bucketAnimations.current[body.plugin.bucketIndex] *= 0.9
                   }
                   ctx.save()
                   ctx.translate(position.x, position.y)
-                  const bucketHue = 25 + multipliers.indexOf(body.plugin.bucketMultiplier) / multipliers.length * 125
-                  const bucketAlpha = .05 + animation
+                  const bucketHue = 25 + (multipliers.indexOf(body.plugin.bucketMultiplier) / multipliers.length) * 125
+                  const bucketAlpha = 0.05 + animation
                   ctx.save()
                   ctx.translate(0, bucketHeight / 2)
                   ctx.scale(1, 1 + animation * 2)
@@ -194,17 +195,11 @@ export default function Plinko() {
         {window.location.origin.includes('localhost') && (
           <>
             <GambaUi.Switch checked={debug} onChange={setDebug} />
-            <GambaUi.Button onClick={() => plinko.single()}>
-              Test
-            </GambaUi.Button>
-            <GambaUi.Button onClick={() => plinko.runAll()}>
-              Simulate
-            </GambaUi.Button>
+            <GambaUi.Button onClick={() => plinko.single()}>Test</GambaUi.Button>
+            <GambaUi.Button onClick={() => plinko.runAll()}>Simulate</GambaUi.Button>
           </>
         )}
-        <GambaUi.PlayButton onClick={play}>
-          Play
-        </GambaUi.PlayButton>
+        <GambaUi.PlayButton onClick={play}>Play</GambaUi.PlayButton>
       </GambaUi.Portal>
     </>
   )
