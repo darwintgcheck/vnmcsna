@@ -1,4 +1,3 @@
-import React from 'react'
 import styled from 'styled-components'
 import { SlideSection } from '../../components/Slider'
 import { GAMES } from '../../games'
@@ -22,12 +21,20 @@ const Grid = styled.div`
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+
   @media (min-width: 600px) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
   @media (min-width: 1000px) {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+`
+
+const Heading = styled.h2`
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 28px;
 `
 
 export function GameGrid() {
@@ -45,7 +52,7 @@ export default function Dashboard() {
     <>
       <WelcomeBanner />
       <ProfileSummary />
-      <h2 style={{ textAlign: 'center' }}>Oyunlar</h2>
+      <Heading>Games</Heading>
       <GameGrid />
     </>
   )
