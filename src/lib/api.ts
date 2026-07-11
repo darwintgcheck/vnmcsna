@@ -76,3 +76,14 @@ export function createWithdraw(payload: { telegramId: number; amount: number }) 
     body: JSON.stringify(payload),
   })
 }
+
+export function getCrashLiveStats() {
+  return apiRequest<{ ok: boolean; queuedBettors: number; updatedAt: string }>('/api/crash/live')
+}
+
+export function updateCrashPresence(payload: { telegramId: number; active: boolean; wager?: number; target?: number }) {
+  return apiRequest<{ ok: boolean; queuedBettors: number }>('/api/crash/presence', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
