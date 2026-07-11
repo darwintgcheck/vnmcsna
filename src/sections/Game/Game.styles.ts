@@ -1,4 +1,4 @@
-import styled, { css, keyframes } from 'styled-components'
+import styled, { keyframes } from 'styled-components'
 
 const splashAnimation = keyframes`
   0% {
@@ -49,9 +49,19 @@ export const Screen = styled.div`
   border-radius: 18px;
   overflow: hidden;
   transition: height .2s ease;
-  height: clamp(260px, 44vh, 520px);
-  min-height: 260px;
+  min-height: clamp(320px, 52vh, 620px);
   border: 1px solid rgba(255, 255, 255, 0.08);
+`
+
+export const ScreenViewport = styled.div`
+  position: relative;
+  width: 100%;
+  min-height: inherit;
+  padding: 0;
+
+  & > * {
+    width: 100%;
+  }
 `
 
 export const IconButton = styled.button`
@@ -116,21 +126,18 @@ export const Controls = styled.div`
 `
 
 export const MetaControls = styled.div`
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 6;
   gap: 12px;
+  flex-wrap: wrap;
 `
 
 export const MetaGroup = styled.div`
   display: flex;
   gap: 8px;
   align-items: center;
+  margin-left: auto;
 `
 
 export const spinnerAnimation = keyframes`
