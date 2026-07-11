@@ -6,15 +6,21 @@ export const MainWrapper = styled.div`
   max-width: 100%;
   transition: width .25s ease, padding .25s ease;
   margin: 0 auto;
-  padding: 10px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  margin-top: 60px;
+  margin-top: 78px;
+
+  @media (max-width: 720px) {
+    margin-top: 122px;
+  }
+
   @media (min-width: 600px) {
     padding: 20px;
     width: 1000px;
   }
+
   @media (min-width: 1280px) {
     padding: 20px;
     width: 1100px;
