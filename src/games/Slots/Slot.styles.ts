@@ -1,38 +1,41 @@
 import styled from 'styled-components'
 
-export const StyledSpinner = styled.div`
-  @keyframes spinning {
-    0% {
-      top: 0;
-    }
-    100% {
-      top: calc(var(--num-items) * -100%);
-    }
-  }
-
-  --num-items: 5;
-  --spin-speed: .6s;
-
-  position: absolute;
+export const StyledSlots = styled.div`
+  perspective: 100px;
+  user-select: none;
   width: 100%;
-  height: 100%;
-
-  transition: opacity .1s .1s ease;
-  animation: spinning var(--spin-speed) .1s linear infinite;
-  opacity: 0;
-
-  &[data-spinning="true"] {
-    opacity: 1;
-  }
 
   & > div {
-    color: white;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-    padding: 15px;
+    display: grid;
+    gap: 18px;
+    transform: rotateX(3deg) rotateY(0deg);
+    padding: 18px;
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(14, 16, 26, 0.96), rgba(8, 9, 15, 0.96));
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
+  .slots {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    box-sizing: border-box;
+    flex-wrap: wrap;
+  }
+
+  .slotImage {
+    aspect-ratio: 1 / 1;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  @media (max-width: 640px) {
+    & > div {
+      padding: 16px;
+    }
+
+    .slots {
+      gap: 10px;
+    }
+  }
 `
