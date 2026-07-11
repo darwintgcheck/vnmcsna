@@ -60,30 +60,30 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
         const openedInTelegram = openTelegramInvoice(response.invoiceLink, async (status) => {
           if (status === 'paid') {
             await refreshUser()
-            setMessage('Ödəniş tamamlandı. Balans yeniləndi ✅')
+            setMessage('Payment completed. Your balance has been refreshed ✅')
             return
           }
 
           if (status === 'cancelled') {
-            setMessage('Ödəniş ləğv edildi.')
+            setMessage('Payment cancelled.')
             return
           }
 
           if (status && status !== 'opened') {
-            setMessage(`Ödəniş statusu: ${status}`)
+            setMessage(`Payment status: ${status}`)
           }
         })
 
         setMessage(
           openedInTelegram
-            ? 'Ödəniş pəncərəsi açıldı. Tamamlanandan sonra balans avtomatik yenilənəcək.'
-            : 'Invoice link yeni pəncərədə açıldı. Ödənişdən sonra səhifəni yeniləyin və ya tətbiqə geri dönün.'
+            ? 'The Telegram invoice window is open. Your balance will refresh automatically after payment.'
+            : 'The invoice was opened in a new window. Return to the app after paying.'
         )
       } else {
-        setMessage(response.message || 'Depozit sorğusu yaradıldı.')
+        setMessage(response.message || 'Deposit request created.')
       }
     } catch (error: any) {
-      telegramAlert(error?.message || 'Depozit yaradılmadı')
+      telegramAlert(error?.message || 'Deposit request failed')
     } finally {
       setBusy(false)
     }
@@ -93,14 +93,14 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
     <Modal onClose={onClose}>
       <Wrap>
         <h1>Deposit ⭐</h1>
-        <p>Balans yalnız Telegram Stars ilə artırılır.</p>
-        <Input type="number" min={1} step={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} placeholder="Stars məbləği" />
+        <p>Your balance can be topped up with Telegram Stars only.</p>
+        <Input type="number" min={1} step={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} placeholder="Stars amount" />
         <Button disabled={busy || amount <= 0} onClick={submit}>
-          {busy ? 'Hazırlanır...' : 'Depozit başlat'}
+          {busy ? 'Preparing…' : 'Start deposit'}
         </Button>
         {config?.adminGiftUsername && (
-          <Secondary type="button" onClick={() => setMessage(`Alternativ gift hesabı: @${config.adminGiftUsername}`)}>
-            Gift hesabını göstər
+          <Secondary type="button" onClick={() => setMessage(`Alternative gift account: @${config.adminGiftUsername}`)}>
+            Show gift account
           </Secondary>
         )}
         {message && <p style={{ marginTop: 14 }}>{message}</p>}
