@@ -24,20 +24,6 @@ export const Container = styled.div`
   gap: 12px;
 `
 
-export const SettingControls = styled.div`
-  & > button {
-    all: unset;
-    cursor: pointer;
-    opacity: .2;
-    transition: opacity .2s;
-    padding: 5px;
-    text-shadow: 0 0 1px #00000066;
-    &:hover {
-      opacity: 1;
-    }
-  }
-`
-
 export const Splash = styled.div`
   pointer-events: none;
   position: absolute;
@@ -63,49 +49,43 @@ export const Screen = styled.div`
   border-radius: 18px;
   overflow: hidden;
   transition: height .2s ease;
-  height: clamp(320px, 52vh, 600px);
-  min-height: 320px;
+  height: clamp(260px, 44vh, 520px);
+  min-height: 260px;
   border: 1px solid rgba(255, 255, 255, 0.08);
 `
 
 export const IconButton = styled.button`
-  background: none;
-  border: none;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
   padding: 0;
-  width: 48px;
-  height: 48px;
+  min-width: 46px;
+  height: 46px;
   justify-content: center;
   align-items: center;
   display: flex;
   margin: 0;
   cursor: pointer;
   font-size: 16px;
-  border-radius: 12px;
+  border-radius: 14px;
   color: white;
+
   &:hover {
     background: #ffffff22;
   }
 `
 
-export const StyledLoadingIndicator = styled.div<{$active: boolean}>`
-  position: relative;
-  height: 3px;
-  width: 100%;
-  overflow: hidden;
-  border-radius: 10px;
-  &:after {
-    content: " ";
-    position: absolute;
-    width: 25%;
-    height: 100%;
-    animation: ${loadingAnimation} ease infinite .5s;
-    opacity: 0;
-    background: #9564ff;
-    transition: opacity .5s;
-    ${(props) => props.$active && css`
-      opacity: 1;
-    `}
-  }
+export const ExitButton = styled.a`
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 `
 
 export const Controls = styled.div`
@@ -137,15 +117,20 @@ export const Controls = styled.div`
 
 export const MetaControls = styled.div`
   position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  padding: 10px;
+  top: 12px;
+  left: 12px;
+  right: 12px;
   display: flex;
-  gap: 8px;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
   z-index: 6;
+  gap: 12px;
+`
+
+export const MetaGroup = styled.div`
+  display: flex;
+  gap: 8px;
+  align-items: center;
 `
 
 export const spinnerAnimation = keyframes`
