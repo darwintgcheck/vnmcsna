@@ -9,12 +9,12 @@ export const MainWrapper = styled.div`
   display: flex;
   flex-direction: column;
   gap: 20px;
-  margin-top: calc(100px + env(safe-area-inset-top));
+  margin-top: calc(104px + env(safe-area-inset-top));
 
   @media (max-width: 720px) {
     padding: 14px;
     gap: 16px;
-    margin-top: calc(138px + env(safe-area-inset-top));
+    margin-top: calc(132px + env(safe-area-inset-top));
   }
 
   @media (min-width: 900px) {
