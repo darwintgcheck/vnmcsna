@@ -8,9 +8,33 @@ declare global {
   }
 }
 
+function getAllTelegramParams() {
+  const collected = new URLSearchParams()
+
+  const append = (raw: string) => {
+    if (!raw) return
+    const normalized = raw.replace(/^[#?]/, '').replace(/^\/?/, '')
+    const params = new URLSearchParams(normalized)
+    params.forEach((value, key) => {
+      if (!collected.has(key)) {
+        collected.set(key, value)
+      }
+    })
+  }
+
+  try {
+    append(window.location.search)
+    append(window.location.hash)
+  } catch {
+    // noop
+  }
+
+  return collected
+}
+
 function getUrlTelegramData() {
   try {
-    const params = new URLSearchParams(window.location.search)
+    const params = getAllTelegramParams()
     return params.get('tgWebAppData') || ''
   } catch {
     return ''
@@ -43,13 +67,13 @@ export function getTelegramUnsafeUser(): TelegramWebAppUser | null {
 
 export function isTelegramMiniApp() {
   const webApp = getTelegramWebApp()
-  if (!webApp) return false
-
+  const params = getAllTelegramParams()
   const hasInitData = Boolean(getTelegramInitData())
   const hasUnsafeUser = Boolean(getTelegramUnsafeUser()?.id)
-  const hasPlatform = Boolean(webApp.platform) && webApp.platform !== 'unknown'
+  const hasPlatform = Boolean(webApp?.platform) && webApp.platform !== 'unknown'
+  const hasMiniAppParams = params.has('tgWebAppPlatform') || params.has('tgWebAppData')
 
-  return hasInitData || hasUnsafeUser || hasPlatform
+  return Boolean(webApp || hasInitData || hasUnsafeUser || hasPlatform || hasMiniAppParams)
 }
 
 export function prepareTelegramUi() {
@@ -66,6 +90,25 @@ export function prepareTelegramUi() {
     webApp.MainButton?.hide?.()
   } catch {
     // noop
+  }
+}
+
+export async function waitForTelegramSession(timeoutMs = 3000, pollMs = 120) {
+  const deadline = Date.now() + timeoutMs
+
+  while (Date.now() < deadline) {
+    const initData = getTelegramInitData()
+    const user = getTelegramUnsafeUser()
+    if (initData || user?.id) {
+      return { initData, user }
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, pollMs))
+  }
+
+  return {
+    initData: getTelegramInitData(),
+    user: getTelegramUnsafeUser(),
   }
 }
 
