@@ -5,7 +5,6 @@ import { GRID_SIZE, MINE_SELECT, PITCH_INCREASE_FACTOR, SOUND_EXPLODE, SOUND_FIN
 import { CellButton, Container, Container2, Grid, Level, Levels, StatusBar } from './styles'
 import { generateGrid, revealAllMines, revealGold } from './utils'
 import { useUserStore } from '../hooks/useUserStore'
-import { didPlayerWin } from '../../utils/houseEdge'
 
 function Mines() {
   const { withdrawBalance, addBalance } = useUserStore()
@@ -17,15 +16,14 @@ function Mines() {
     explode: SOUND_EXPLODE,
   })
 
-  const [grid, setGrid] = React.useState(generateGrid(GRID_SIZE))
+  const [initialWager, setInitialWager] = React.useState(10)
+  const [mines, setMines] = React.useState(MINE_SELECT[2])
+  const [grid, setGrid] = React.useState(() => generateGrid(GRID_SIZE, MINE_SELECT[2]))
   const [currentLevel, setLevel] = React.useState(0)
   const [selected, setSelected] = React.useState(-1)
   const [totalGain, setTotalGain] = React.useState(0)
   const [loading, setLoading] = React.useState(false)
   const [started, setStarted] = React.useState(false)
-
-  const [initialWager, setInitialWager] = React.useState(10)
-  const [mines, setMines] = React.useState(MINE_SELECT[2])
 
   const getMultiplierForLevel = (level: number) => {
     const remainingCells = GRID_SIZE - level
@@ -67,12 +65,23 @@ function Mines() {
     return () => stopLoopSounds()
   }, [stopLoopSounds])
 
-  const start = () => {
-    if (!withdrawBalance(initialWager, 'mines-start')) return
-    setGrid(generateGrid(GRID_SIZE))
+  const reset = React.useCallback(() => {
+    setGrid(generateGrid(GRID_SIZE, mines))
     setLoading(false)
     setLevel(0)
     setTotalGain(0)
+    setStarted(false)
+    setSelected(-1)
+    stopLoopSounds()
+  }, [mines, stopLoopSounds])
+
+  const start = () => {
+    if (!withdrawBalance(initialWager, 'mines-start')) return
+    setGrid(generateGrid(GRID_SIZE, mines))
+    setLoading(false)
+    setLevel(0)
+    setTotalGain(0)
+    setSelected(-1)
     setStarted(true)
   }
 
@@ -81,17 +90,11 @@ function Mines() {
     reset()
   }
 
-  const reset = () => {
-    setGrid(generateGrid(GRID_SIZE))
-    setLoading(false)
-    setLevel(0)
-    setTotalGain(0)
-    setStarted(false)
-    stopLoopSounds()
-  }
-
   const play = async (cellIndex: number) => {
     if (!wager) return
+    const targetCell = grid[cellIndex]
+    if (!targetCell || targetCell.status !== 'hidden') return
+
     setLoading(true)
     setSelected(cellIndex)
     try {
@@ -100,12 +103,12 @@ function Mines() {
       sounds.sounds.tick.player.loop = true
       sounds.play('tick')
 
-      const isSafe = didPlayerWin()
+      const isSafe = !targetCell.isMine
       stopLoopSounds()
 
       if (!isSafe) {
         setStarted(false)
-        setGrid(revealAllMines(grid, cellIndex, mines))
+        setGrid(revealAllMines(grid, cellIndex))
         sounds.play('explode')
         return
       }
@@ -116,7 +119,7 @@ function Mines() {
       const nextLevel = currentLevel + 1
       setLevel(nextLevel)
       setGrid(revealGold(grid, cellIndex, profit))
-      setTotalGain(totalGain + profit)
+      setTotalGain((current) => current + profit)
 
       if (nextLevel < GRID_SIZE - mines) {
         sounds.play('win', { playbackRate: Math.pow(PITCH_INCREASE_FACTOR, currentLevel) })
@@ -138,7 +141,7 @@ function Mines() {
           <Levels>
             {levels.map(({ cumProfit }, i) => (
               <Level key={i} $active={currentLevel === i}>
-                <div>LEVEL {i + 1}</div>
+                <div>Level {i + 1}</div>
                 <div>{Math.round(cumProfit)} ⭐</div>
               </Level>
             ))}
