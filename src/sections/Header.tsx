@@ -9,8 +9,8 @@ const StyledHeader = styled.header`
   left: 0;
   right: 0;
   z-index: 1000;
-  padding: calc(10px + env(safe-area-inset-top)) 14px 12px;
-  background: rgba(8, 8, 13, 0.9);
+  padding: calc(10px + env(safe-area-inset-top)) 12px 12px;
+  background: rgba(8, 8, 13, 0.92);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 `
@@ -25,6 +25,7 @@ const Inner = styled.div`
 
   @media (max-width: 720px) {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 `
 
@@ -34,6 +35,7 @@ const Brand = styled(NavLink)`
   gap: 12px;
   min-width: 0;
   color: #fff;
+  text-decoration: none;
 
   img {
     width: 42px;
@@ -44,39 +46,43 @@ const Brand = styled(NavLink)`
 
 const BrandTitle = styled.div`
   display: grid;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 `
 
 const Title = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 900;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `
 
 const SubTitle = styled.div`
   color: #97a0ba;
   font-size: 12px;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 `
 
 const Actions = styled.div`
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: auto auto auto;
   gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
 
   @media (max-width: 720px) {
-    justify-content: stretch;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 `
 
 const Balance = styled.div`
-  min-height: 42px;
-  padding: 10px 14px;
+  min-height: 44px;
+  padding: 10px 12px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -86,11 +92,13 @@ const Balance = styled.div`
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 72px;
+  text-align: center;
 `
 
 const Button = styled.button<{ $accent?: boolean }>`
-  min-height: 42px;
-  padding: 10px 14px;
+  min-height: 44px;
+  padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid ${({ $accent }) => ($accent ? 'transparent' : 'rgba(255,255,255,0.12)')};
   background: ${({ $accent }) => ($accent ? 'linear-gradient(90deg, #fbbf24, #fb7185)' : 'rgba(255,255,255,0.06)')};
@@ -98,6 +106,7 @@ const Button = styled.button<{ $accent?: boolean }>`
   font-weight: 800;
   font-size: 13px;
   cursor: pointer;
+  white-space: nowrap;
 
   &:disabled {
     opacity: 0.55;
@@ -105,7 +114,7 @@ const Button = styled.button<{ $accent?: boolean }>`
   }
 
   @media (max-width: 720px) {
-    flex: 1 1 0;
+    width: 100%;
   }
 `
 
@@ -132,7 +141,7 @@ export default function Header({ openDeposit, openWithdraw }: { openDeposit?: ()
               <Button $accent onClick={openDeposit}>Deposit</Button>
             </>
           ) : (
-            <Button $accent disabled>
+            <Button $accent disabled style={{ gridColumn: 'span 2' }}>
               Connecting…
             </Button>
           )}
