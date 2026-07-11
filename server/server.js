@@ -15,6 +15,7 @@ const WITHDRAW_FEE_PERCENT = normalizeNumber(process.env.WITHDRAW_FEE_PERCENT ||
 const ALLOW_DEV_AUTH = process.env.ALLOW_DEV_AUTH === 'true' || process.env.NODE_ENV !== 'production';
 const ADMIN_USERS_PAGE_SIZE = 8;
 const CRASH_PRESENCE_TTL_MS = 45_000;
+const MINIAPP_AUTH_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 const ADMIN_TELEGRAM_IDS = new Set(
   String(process.env.ADMIN_TELEGRAM_IDS || '')
@@ -558,7 +559,7 @@ function parseTelegramInitData(initData) {
 
   const authDate = normalizeNumber(params.get('auth_date'), { min: 0, integerOnly: true, fallback: 0 });
   const now = Math.floor(Date.now() / 1000);
-  if (authDate && Math.abs(now - authDate) > 60 * 60 * 24) {
+  if (authDate && Math.abs(now - authDate) > MINIAPP_AUTH_TTL_SECONDS) {
     throw new Error('Telegram session expired');
   }
 
@@ -680,6 +681,42 @@ app.post('/api/auth/dev', async (req, res) => {
   } catch (error) {
     console.error('auth/dev error:', error);
     res.status(400).json({ error: error.message || 'Dev sign-in failed' });
+  }
+});
+
+app.post('/api/auth/miniapp', async (req, res) => {
+  try {
+    const initData = String(req.body?.initData || '');
+    const unsafeUser = req.body?.user || {};
+
+    if (initData) {
+      try {
+        const strictUser = parseTelegramInitData(initData);
+        const user = await upsertUserRecord(strictUser);
+        return res.json({ user, config: getPublicConfig() });
+      } catch (error) {
+        console.warn('auth/miniapp strict verification failed:', error.message);
+      }
+    }
+
+    const fallbackUser = sanitizeUserPayload({
+      telegramId: unsafeUser.id || unsafeUser.telegramId,
+      firstName: unsafeUser.first_name || unsafeUser.firstName,
+      lastName: unsafeUser.last_name || unsafeUser.lastName,
+      username: unsafeUser.username,
+      photoUrl: unsafeUser.photo_url || unsafeUser.photoUrl,
+      languageCode: unsafeUser.language_code || unsafeUser.languageCode,
+    });
+
+    if (!fallbackUser.telegramId) {
+      return res.status(400).json({ error: 'Telegram account data could not be read' });
+    }
+
+    const user = await upsertUserRecord(fallbackUser);
+    res.json({ user, config: getPublicConfig(), fallbackAuth: true });
+  } catch (error) {
+    console.error('auth/miniapp error:', error);
+    res.status(400).json({ error: error.message || 'Mini App sign-in failed' });
   }
 });
 
