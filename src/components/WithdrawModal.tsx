@@ -47,9 +47,9 @@ export default function WithdrawModal({ onClose }: { onClose: () => void }) {
     try {
       setBusy(true)
       const response = await requestWithdraw(Number(amount))
-      setMessage(`Sorğu qəbul edildi. Net: ${response.netAmount} ⭐ | Komissiya: ${response.feeAmount} ⭐`)
+      setMessage(`Request received. Net amount: ${response.netAmount} ⭐ | Fee: ${response.feeAmount} ⭐`)
     } catch (error: any) {
-      telegramAlert(error?.message || 'Çıxarış yaradılmadı')
+      telegramAlert(error?.message || 'Withdraw request failed')
     } finally {
       setBusy(false)
     }
@@ -58,14 +58,14 @@ export default function WithdrawModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal onClose={onClose}>
       <Wrap>
-        <h1>Çıxarış</h1>
-        <p>Mövcud balans: {balance} ⭐</p>
-        <Input type="number" min={1} max={balance} value={amount} onChange={(e) => setAmount(Number(e.target.value))} placeholder="Çıxarış məbləği" />
+        <h1>Withdraw</h1>
+        <p>Current balance: {balance} ⭐</p>
+        <Input type="number" min={1} max={balance} value={amount} onChange={(e) => setAmount(Number(e.target.value))} placeholder="Withdraw amount" />
         <p>
-          Komissiya: {feePercent}% · Komissiya məbləği: {fee} ⭐ · Sizə çatacaq: {net} ⭐
+          Fee: {feePercent}% · Fee amount: {fee} ⭐ · You receive: {net} ⭐
         </p>
         <Button disabled={busy || amount <= 0 || amount > balance} onClick={submit}>
-          {busy ? 'Göndərilir...' : 'Çıxarış sorğusu göndər'}
+          {busy ? 'Sending…' : 'Send withdraw request'}
         </Button>
         {message && <p style={{ marginTop: 14 }}>{message}</p>}
       </Wrap>
