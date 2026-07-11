@@ -29,6 +29,22 @@ const Button = styled.button`
   color: #140b0b;
   font-weight: 800;
   cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+`
+
+const Note = styled.div`
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #c7c9d4;
+  font-size: 13px;
+  line-height: 1.5;
 `
 
 export default function WithdrawModal({ onClose }: { onClose: () => void }) {
@@ -46,8 +62,9 @@ export default function WithdrawModal({ onClose }: { onClose: () => void }) {
   const submit = async () => {
     try {
       setBusy(true)
+      setMessage('')
       const response = await requestWithdraw(Number(amount))
-      setMessage(`Request received. Net amount: ${response.netAmount} ⭐ | Fee: ${response.feeAmount} ⭐`)
+      setMessage(`Your request was sent for admin review. Net payout: ${response.netAmount} ⭐ · Fee: ${response.feeAmount} ⭐.`)
     } catch (error: any) {
       telegramAlert(error?.message || 'Withdraw request failed')
     } finally {
@@ -64,9 +81,10 @@ export default function WithdrawModal({ onClose }: { onClose: () => void }) {
         <p>
           Fee: {feePercent}% · Fee amount: {fee} ⭐ · You receive: {net} ⭐
         </p>
-        <Button disabled={busy || amount <= 0 || amount > balance} onClick={submit}>
+        <Button type="button" disabled={busy || amount <= 0 || amount > balance || net <= 0} onClick={submit}>
           {busy ? 'Sending…' : 'Send withdraw request'}
         </Button>
+        <Note>Withdrawals are reviewed manually. If the request is rejected, the full requested amount is returned to the player balance.</Note>
         {message && <p style={{ marginTop: 14 }}>{message}</p>}
       </Wrap>
     </Modal>
