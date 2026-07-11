@@ -1,182 +1,242 @@
 import React from 'react'
+import styled from 'styled-components'
 import { GambaUi, useSound } from 'gamba-react-ui-v2'
-import { useUserStore } from '../hooks/useUserStore'
-import { didPlayerWin } from '../../utils/houseEdge'
-import {
-  MAX_CARD_SHOWN,
-  RANKS,
-  RANK_SYMBOLS,
-  SOUND_CARD,
-  SOUND_FINISH,
-  SOUND_LOSE,
-  SOUND_PLAY,
-  SOUND_WIN,
-} from './constants'
-import {
-  Card,
-  CardContainer,
-  CardPreview,
-  CardsContainer,
-  Container,
-  Option,
-  Options,
-  Profit,
-} from './styles'
+import { useUserStore } from '../../hooks/useUserStore'
+import { RANKS, RANK_SYMBOLS, SOUND_CARD, SOUND_FINISH, SOUND_LOSE, SOUND_PLAY, SOUND_WIN } from './constants'
 
-const randomRank = () => 1 + Math.floor(Math.random() * (RANKS - 1))
+const ScreenCard = styled.div`
+  width: 100%;
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(18, 13, 24, 0.96), rgba(8, 8, 14, 0.98));
+  border: 1px solid rgba(255,255,255,0.08);
+`
 
-const card = (rank = randomRank()): Card => ({
-  key: Math.random(),
-  rank,
-})
+const Cards = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+`
 
-interface Card {
-  key: number
-  rank: number
-}
+const Card = styled.div<{ $hidden?: boolean }>`
+  min-height: 170px;
+  border-radius: 22px;
+  background: ${({ $hidden }) => ($hidden ? 'linear-gradient(135deg, #28213c, #14111f)' : 'linear-gradient(180deg, #ffffff, #f3f4f8)')};
+  border: 1px solid ${({ $hidden }) => ($hidden ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)')};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  color: ${({ $hidden }) => ($hidden ? '#d9cbff' : '#161616')};
+  box-shadow: 0 12px 24px rgba(0,0,0,0.24);
+`
+
+const CardRank = styled.div`
+  font-size: clamp(34px, 8vw, 64px);
+  font-weight: 900;
+  z-index: 2;
+`
+
+const CardSuit = styled.div<{ $hidden?: boolean }>`
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  font-size: 68px;
+  opacity: ${({ $hidden }) => ($hidden ? 0.2 : 0.12)};
+`
+
+const CardLabel = styled.div`
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+`
+
+const Status = styled.div<{ $win?: boolean; $loss?: boolean }>`
+  padding: 14px;
+  border-radius: 18px;
+  background: ${({ $win, $loss }) => ($win ? 'rgba(72,255,143,0.12)' : $loss ? 'rgba(255,99,99,0.12)' : 'rgba(255,255,255,0.05)')};
+  border: 1px solid ${({ $win, $loss }) => ($win ? 'rgba(72,255,143,0.35)' : $loss ? 'rgba(255,99,99,0.3)' : 'rgba(255,255,255,0.1)')};
+  color: ${({ $win, $loss }) => ($win ? '#7cffb1' : $loss ? '#ff9f9f' : '#dfe8ff')};
+  font-weight: 800;
+  text-align: center;
+`
+
+const Controls = styled.div`
+  width: 100%;
+  display: grid;
+  gap: 12px;
+`
+
+const WagerInput = styled.input`
+  width: 100%;
+  min-height: 56px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  padding: 0 16px;
+  font-size: 18px;
+  font-weight: 800;
+  outline: none;
+`
+
+const GuessRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+`
+
+const GuessButton = styled.button<{ $active?: boolean }>`
+  min-height: 54px;
+  border-radius: 18px;
+  border: 1px solid ${({ $active }) => ($active ? 'rgba(255,224,117,0.7)' : 'rgba(255,255,255,0.12)')};
+  background: ${({ $active }) => ($active ? 'linear-gradient(135deg, rgba(255,224,117,0.22), rgba(255,130,99,0.18))' : 'rgba(255,255,255,0.05)')};
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+`
+
+const ActionRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+`
+
+const ActionButton = styled.button<{ $accent?: boolean }>`
+  min-height: 56px;
+  border: none;
+  border-radius: 18px;
+  background: ${({ $accent }) => ($accent ? 'linear-gradient(90deg, #f3b533, #ff6d7e)' : 'rgba(255,255,255,0.06)')};
+  color: ${({ $accent }) => ($accent ? '#1e0909' : '#fff')};
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  border: ${({ $accent }) => ($accent ? 'none' : '1px solid rgba(255,255,255,0.12)')};
+`
+
+const rankSymbol = (rank: number) => RANK_SYMBOLS[Math.max(0, Math.min(RANKS - 1, rank))]
+const randomRank = () => Math.floor(Math.random() * RANKS)
+
+type Choice = 'hi' | 'lo'
 
 export interface HiLoConfig {
   logo: string
 }
 
-export default function HiLo(props: HiLoConfig) {
+export default function HiLo({ logo }: HiLoConfig) {
   const { balance, withdrawBalance, addBalance } = useUserStore()
-
-  const [cards, setCards] = React.useState([card()])
-  const [claiming, setClaiming] = React.useState(false)
-  const [initialWager, setInitialWager] = React.useState(10)
-  const [profit, setProfit] = React.useState(0)
-  const currentRank = cards[cards.length - 1].rank
-  const [option, setOption] = React.useState<'hi' | 'lo'>(currentRank > RANKS / 2 ? 'lo' : 'hi')
-  const [hoveredOption, hoverOption] = React.useState<'hi' | 'lo'>()
+  const [currentRank, setCurrentRank] = React.useState(randomRank())
+  const [nextRank, setNextRank] = React.useState<number | null>(null)
+  const [choice, setChoice] = React.useState<Choice>('hi')
+  const [wager, setWager] = React.useState(10)
+  const [status, setStatus] = React.useState('Choose higher or lower and deal the next card.')
+  const [lastNet, setLastNet] = React.useState<number | null>(null)
+  const [busy, setBusy] = React.useState(false)
 
   const sounds = useSound({
+    play: SOUND_PLAY,
     card: SOUND_CARD,
     win: SOUND_WIN,
     lose: SOUND_LOSE,
-    play: SOUND_PLAY,
     finish: SOUND_FINISH,
   })
 
-  const addCard = (rank: number) => setCards((prev) => [...prev, card(rank)].slice(-MAX_CARD_SHOWN))
+  const resetRound = () => {
+    setNextRank(null)
+    setStatus('Choose higher or lower and deal the next card.')
+    setLastNet(null)
+    sounds.play('finish', { playbackRate: 0.9 })
+  }
 
-  const getNextRank = () => {
-    const won = didPlayerWin()
-    if (option === 'hi') {
-      const higher = Array.from({ length: RANKS - currentRank }, (_, index) => currentRank + index)
-      const lower = Array.from({ length: currentRank }, (_, index) => index)
-      return won ? higher[Math.floor(Math.random() * higher.length)] : lower[Math.floor(Math.random() * lower.length)]
+  const play = () => {
+    const nextWager = Math.max(1, Math.round(Number(wager) || 1))
+    setWager(nextWager)
+
+    if (busy) return
+    if (!withdrawBalance(nextWager, 'hilo-bet')) {
+      setStatus('Not enough balance for that card deal.')
+      setLastNet(null)
+      return
     }
 
-    const lower = Array.from({ length: currentRank + 1 }, (_, index) => index)
-    const higher = Array.from({ length: Math.max(1, RANKS - currentRank - 1) }, (_, index) => currentRank + 1 + index)
-    return won ? lower[Math.floor(Math.random() * lower.length)] : higher[Math.floor(Math.random() * higher.length)]
-  }
-
-  const play = async () => {
-    if (initialWager > balance) return alert('Not enough balance')
-
+    setBusy(true)
+    setStatus('Dealing the next card…')
+    setLastNet(null)
     sounds.play('play')
-    withdrawBalance(initialWager, 'hilo-bet')
 
-    const nextRank = getNextRank()
-    addCard(nextRank)
+    const dealtRank = randomRank()
+    window.setTimeout(() => {
+      setNextRank(dealtRank)
+      sounds.play('card', { playbackRate: 0.9 })
 
-    const won = (option === 'hi' && nextRank >= currentRank) || (option === 'lo' && nextRank <= currentRank)
-
-    setTimeout(() => {
+      const won = choice === 'hi' ? dealtRank >= currentRank : dealtRank <= currentRank
       if (won) {
-        const payout = initialWager * 2
+        const payout = nextWager * 2
         addBalance(payout, 'hilo-win')
-        setProfit(payout)
+        setLastNet(payout - nextWager)
+        setStatus(`Correct guess. ${rankSymbol(dealtRank)} was ${choice === 'hi' ? 'higher' : 'lower'} and you won ${payout} ⭐.`)
         sounds.play('win')
       } else {
-        setProfit(0)
+        setLastNet(-nextWager)
+        setStatus(`Wrong guess. The next card was ${rankSymbol(dealtRank)}.`)
         sounds.play('lose')
       }
-      sounds.play('card', { playbackRate: 0.8 })
-    }, 300)
-  }
 
-  const resetGame = () => {
-    sounds.play('finish', { playbackRate: 0.8 })
-    setTimeout(() => {
-      setProfit(0)
-      addCard(randomRank())
-      setClaiming(false)
-    }, 300)
+      setCurrentRank(dealtRank)
+      setBusy(false)
+    }, 500)
   }
 
   return (
     <>
       <GambaUi.Portal target="screen">
-        <GambaUi.Responsive>
-          <Container $disabled={claiming}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-              <CardsContainer>
-                {cards.map((currentCard, i) => {
-                  const offset = -(cards.length - (i + 1))
-                  const xxx = cards.length > 3 ? i / cards.length : 1
-                  const opacity = Math.min(1, xxx * 3)
-                  return (
-                    <CardContainer
-                      key={currentCard.key}
-                      style={{
-                        transform: `translate(${offset * 30}px, ${-offset * 0}px) rotateZ(-5deg) rotateY(5deg)`,
-                        opacity,
-                      }}
-                    >
-                      <Card>
-                        <div className="rank">{RANK_SYMBOLS[currentCard.rank]}</div>
-                        <div className="suit" style={{ backgroundImage: 'url(' + props.logo + ')' }} />
-                      </Card>
-                    </CardContainer>
-                  )
-                })}
-              </CardsContainer>
-              <Options>
-                <Option selected={option === 'hi'} onClick={() => setOption('hi')} onMouseEnter={() => hoverOption('hi')} onMouseLeave={() => hoverOption(undefined)}>
-                  <div>👆</div>
-                  <div>HI</div>
-                </Option>
-                <Option selected={option === 'lo'} onClick={() => setOption('lo')} onMouseEnter={() => hoverOption('lo')} onMouseLeave={() => hoverOption(undefined)}>
-                  <div>👇</div>
-                  <div>LO</div>
-                </Option>
-              </Options>
-            </div>
-            <CardPreview>
-              {Array.from({ length: RANKS }).map((_, rankIndex) => (
-                <Card key={rankIndex} $small style={{ opacity: hoveredOption ? 0.85 : 0.7 }}>
-                  <div className="rank">{RANK_SYMBOLS[rankIndex]}</div>
-                </Card>
-              ))}
-            </CardPreview>
-            {profit > 0 && (
-              <Profit key={profit} onClick={resetGame}>
-                +{profit}
-              </Profit>
-            )}
-          </Container>
-        </GambaUi.Responsive>
+        <ScreenCard>
+          <Cards>
+            <Card>
+              <CardLabel>Current card</CardLabel>
+              <CardRank>{rankSymbol(currentRank)}</CardRank>
+              <CardSuit style={{ backgroundImage: `url(${logo})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', width: 72, height: 72 }} />
+            </Card>
+            <Card $hidden={nextRank === null}>
+              <CardLabel>Next card</CardLabel>
+              <CardRank>{nextRank === null ? '?' : rankSymbol(nextRank)}</CardRank>
+              <CardSuit $hidden={nextRank === null} style={{ backgroundImage: `url(${logo})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', width: 72, height: 72 }} />
+            </Card>
+          </Cards>
+
+          <Status $win={Boolean(lastNet && lastNet > 0)} $loss={Boolean(lastNet !== null && lastNet < 0)}>
+            {status}
+          </Status>
+        </ScreenCard>
       </GambaUi.Portal>
+
       <GambaUi.Portal target="controls">
-        {!profit ? (
-          <>
-            <GambaUi.WagerInput value={initialWager} onChange={setInitialWager} />
-            <GambaUi.PlayButton disabled={!option} onClick={play}>
-              Deal card
-            </GambaUi.PlayButton>
-          </>
-        ) : (
-          <>
-            <div>Profit: {profit}</div>
-            <GambaUi.Button onClick={resetGame}>Finish</GambaUi.Button>
-            <GambaUi.PlayButton disabled={!option} onClick={play}>
-              Deal card
-            </GambaUi.PlayButton>
-          </>
-        )}
+        <Controls>
+          <WagerInput
+            type="number"
+            min={1}
+            max={Math.max(balance, 1)}
+            value={wager}
+            onChange={(e) => setWager(Math.max(1, Math.round(Number(e.target.value) || 1)))}
+            placeholder="Enter bet amount"
+          />
+          <GuessRow>
+            <GuessButton type="button" $active={choice === 'hi'} onClick={() => setChoice('hi')}>Higher</GuessButton>
+            <GuessButton type="button" $active={choice === 'lo'} onClick={() => setChoice('lo')}>Lower</GuessButton>
+          </GuessRow>
+          <ActionRow>
+            <ActionButton type="button" onClick={resetRound}>Reset</ActionButton>
+            <ActionButton type="button" $accent disabled={busy || wager > balance} onClick={play}>Deal Card</ActionButton>
+          </ActionRow>
+        </Controls>
       </GambaUi.Portal>
     </>
   )
