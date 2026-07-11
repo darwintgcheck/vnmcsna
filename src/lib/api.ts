@@ -38,6 +38,23 @@ export function authTelegram(initData: string) {
   })
 }
 
+export function authMiniApp(payload: {
+  initData?: string
+  user: {
+    id: number
+    first_name?: string
+    last_name?: string
+    username?: string
+    photo_url?: string
+    language_code?: string
+  }
+}) {
+  return apiRequest<{ user: User; config: PublicConfig; fallbackAuth?: boolean }>('/api/auth/miniapp', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 export function authDev(payload: {
   telegramId: number
   firstName: string
