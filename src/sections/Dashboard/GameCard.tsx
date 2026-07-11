@@ -14,21 +14,13 @@ const tileAnimation = keyframes`
 
 const StyledGameCard = styled(NavLink)<{$small: boolean, $background: string}>`
   width: 100%;
-
-  @media (min-width: 800px) {
-    width: 100%;
-  }
-
-  aspect-ratio: ${(props) => props.$small ? '1/.5' : '1/.6'};
+  aspect-ratio: ${(props) => props.$small ? '1/.54' : '1/.62'};
   background-size: cover;
-  border-radius: 10px;
-
+  border-radius: 16px;
   color: white;
   text-decoration: none;
   font-size: 24px;
-
   transition: transform .2s ease;
-  /* border-bottom: 2px solid #00000033; */
 
   & > .background {
     position: absolute;
@@ -82,22 +74,32 @@ const StyledGameCard = styled(NavLink)<{$small: boolean, $background: string}>`
   background-size: 100% auto;
   background-position: center;
   font-weight: bold;
-  .play {
-    font-size: 14px;
-    border-radius: 5px;
-    padding: 5px 10px;
-    background: #00000066;
-    position: absolute;
-    right: 5px;
-    bottom: 5px;
-    opacity: 0;
-    text-transform: uppercase;
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.2);
 
-    backdrop-filter: blur(20px);
-  }
-  &:hover .play {
+  .play {
+    font-size: 13px;
+    border-radius: 999px;
+    padding: 7px 12px;
+    background: #00000088;
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
     opacity: 1;
+    text-transform: uppercase;
+    backdrop-filter: blur(20px);
+    letter-spacing: 0.04em;
   }
+
+  @media (hover: hover) {
+    .play {
+      opacity: 0;
+    }
+
+    &:hover .play {
+      opacity: 1;
+    }
+  }
+
   &:hover {
     outline: #9564ff33 solid 5px;
     outline-offset: 0px;
@@ -114,7 +116,7 @@ export function GameCard({ game }: {game: GameBundle}) {
     >
       <div className="background" />
       <div className="image" style={{ backgroundImage: `url(${game.meta.image})` }} />
-      <div className="play">Play {game.meta.name}</div>
+      <div className="play">Oyna</div>
     </StyledGameCard>
   )
 }
