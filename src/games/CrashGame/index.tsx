@@ -1,6 +1,7 @@
 import { GambaUi } from 'gamba-react-ui-v2'
 import React from 'react'
 import { useUserStore } from '../hooks/useUserStore'
+import { didPlayerWin } from '../../utils/houseEdge'
 import CRASH_SOUND from './crash.mp3'
 import SOUND from './music.mp3'
 import WIN_SOUND from './win.mp3'
@@ -41,7 +42,7 @@ export default function CrashGame() {
   const [currentMultiplier, setCurrentMultiplier] = React.useState(1)
   const [rocketState, setRocketState] = React.useState<'countdown' | 'flying' | 'win' | 'crash'>('countdown')
   const [countdown, setCountdown] = React.useState(COUNTDOWN_SECONDS)
-  const [roundMessage, setRoundMessage] = React.useState('10 saniyədən sonra növbəti uçuş başlayacaq.')
+  const [roundMessage, setRoundMessage] = React.useState('The next flight starts in 10 seconds.')
   const [queuedBet, setQueuedBet] = React.useState(false)
   const [activeWager, setActiveWager] = React.useState(0)
   const [activeTarget, setActiveTarget] = React.useState(1.5)
@@ -53,22 +54,40 @@ export default function CrashGame() {
   const animationFrameRef = React.useRef<number | null>(null)
   const timeoutRef = React.useRef<number | null>(null)
   const ambientAudioRef = React.useRef<HTMLAudioElement | null>(null)
+  const activeSoundsRef = React.useRef<Set<HTMLAudioElement>>(new Set())
 
-  const playSound = React.useCallback((src: string, loop = false) => {
+  const registerAudio = React.useCallback((audio: HTMLAudioElement) => {
+    activeSoundsRef.current.add(audio)
+    audio.addEventListener('ended', () => activeSoundsRef.current.delete(audio), { once: true })
+  }, [])
+
+  const playSound = React.useCallback((src: string, loop = false, volume = 0.55) => {
     try {
       const audio = new Audio(src)
       audio.loop = loop
+      audio.volume = volume
+      registerAudio(audio)
       void audio.play().catch(() => undefined)
       return audio
     } catch {
       return null
     }
+  }, [registerAudio])
+
+  const stopAllAudio = React.useCallback(() => {
+    activeSoundsRef.current.forEach((audio) => {
+      audio.pause()
+      audio.currentTime = 0
+    })
+    activeSoundsRef.current.clear()
+    ambientAudioRef.current = null
   }, [])
 
   const stopAmbient = React.useCallback(() => {
     if (ambientAudioRef.current) {
       ambientAudioRef.current.pause()
       ambientAudioRef.current.currentTime = 0
+      activeSoundsRef.current.delete(ambientAudioRef.current)
       ambientAudioRef.current = null
     }
   }, [])
@@ -76,7 +95,7 @@ export default function CrashGame() {
   const calculateBiasedLowMultiplier = React.useCallback((target: number) => {
     const randomValue = Math.random()
     const maxPossibleMultiplier = Math.min(target, 12)
-    const exponent = randomValue > 0.95 ? 2.8 : (target > 10 ? 5 : 6)
+    const exponent = randomValue > 0.95 ? 2.8 : target > 10 ? 5 : 6
     const result = 1 + Math.pow(randomValue, exponent) * (maxPossibleMultiplier - 1)
     return Number(Math.max(1.01, result).toFixed(2))
   }, [])
@@ -102,7 +121,7 @@ export default function CrashGame() {
     setRocketState('countdown')
     setCurrentMultiplier(1)
     setCountdown(COUNTDOWN_SECONDS)
-    setRoundMessage('10 saniyəlik geri sayım başladı. Uçuş avtomatik başlayacaq.')
+    setRoundMessage('Countdown started. The next flight launches automatically.')
 
     countdownTimerRef.current = window.setInterval(() => {
       setCountdown((prev) => {
@@ -121,18 +140,18 @@ export default function CrashGame() {
 
   const finishRound = React.useCallback((won: boolean, wagerAmount: number, target: number, crashPoint: number) => {
     stopAmbient()
-    playSound(won ? WIN_SOUND : CRASH_SOUND)
+    playSound(won ? WIN_SOUND : CRASH_SOUND, false, 0.8)
     setRocketState(won ? 'win' : 'crash')
     setCurrentMultiplier(crashPoint)
 
     if (won && wagerAmount > 0) {
       const payout = Math.round(wagerAmount * target)
       addBalance(payout, 'crash-win')
-      setRoundMessage(`Raket ${target.toFixed(2)}x nöqtəsinə çatdı. +${payout} ⭐ qazandın.`)
+      setRoundMessage(`The rocket reached ${target.toFixed(2)}x. You won +${payout} ⭐.`)
     } else if (wagerAmount > 0) {
-      setRoundMessage(`Raket ${crashPoint.toFixed(2)}x-də dayandı. Bu raund uduzdun.`)
+      setRoundMessage(`The rocket crashed at ${crashPoint.toFixed(2)}x. This round was lost.`)
     } else {
-      setRoundMessage(`İzləmə raundu ${crashPoint.toFixed(2)}x-də bitdi. Mərc qoyub növbəti raunda qoşula bilərsən.`)
+      setRoundMessage(`Spectator round ended at ${crashPoint.toFixed(2)}x. Join the next round to play.`)
     }
 
     setQueuedBet(false)
@@ -152,14 +171,14 @@ export default function CrashGame() {
 
     if (queuedBet) {
       if (nextWager <= 0) {
-        setRoundMessage('Mərc 1 ⭐ və ya daha çox olmalıdır.')
+        setRoundMessage('The wager must be at least 1 ⭐.')
         setQueuedBet(false)
         startCountdown()
         return
       }
 
       if (!withdrawBalance(nextWager, 'crash-bet')) {
-        setRoundMessage('Balans kifayət etmədi. Mərc növbəti raund üçün ləğv olundu.')
+        setRoundMessage('Not enough balance. The bet was cancelled for the next round.')
         setQueuedBet(false)
         startCountdown()
         return
@@ -170,13 +189,13 @@ export default function CrashGame() {
     setActiveTarget(nextTarget)
     setCurrentMultiplier(1)
     setRocketState('flying')
-    setRoundMessage(spectatorMode ? 'Raund izləmə rejimində başladı.' : `Mərc qəbul edildi: ${nextWager} ⭐ • Hədəf: ${nextTarget.toFixed(2)}x`)
-    ambientAudioRef.current = playSound(SOUND, true)
+    setRoundMessage(spectatorMode ? 'Spectator round started.' : `Bet accepted: ${nextWager} ⭐ • Target: ${nextTarget.toFixed(2)}x`)
+    ambientAudioRef.current = playSound(SOUND, true, 0.35)
 
-    const win = spectatorMode ? Math.random() > 0.55 : Math.random() > 0.5
+    const won = spectatorMode ? didPlayerWin(0.45) : didPlayerWin()
     const crashPoint = spectatorMode
       ? Number((1.1 + Math.random() * 4.9).toFixed(2))
-      : Number((win ? nextTarget : calculateBiasedLowMultiplier(nextTarget)).toFixed(2))
+      : Number((won ? nextTarget : calculateBiasedLowMultiplier(nextTarget)).toFixed(2))
 
     setPlannedCrashPoint(crashPoint)
 
@@ -184,11 +203,11 @@ export default function CrashGame() {
     const animate = (now: number) => {
       if (roundRef.current !== roundId) return
       const elapsed = now - startTime
-      const growth = Math.max(0, elapsed / 900)
-      const nextMultiplier = Number((1 + growth + (growth * growth * 0.65)).toFixed(2))
+      const growth = Math.max(0, elapsed / 1200)
+      const nextMultiplier = Number((1 + growth * 0.78 + growth * growth * 0.48).toFixed(2))
 
       if (nextMultiplier >= crashPoint) {
-        finishRound(win, spectatorMode ? 0 : nextWager, nextTarget, crashPoint)
+        finishRound(won, spectatorMode ? 0 : nextWager, nextTarget, crashPoint)
         return
       }
 
@@ -207,44 +226,43 @@ export default function CrashGame() {
 
   React.useEffect(() => {
     startCountdown()
+    const handlePageHide = () => stopAllAudio()
+    window.addEventListener('pagehide', handlePageHide)
     return () => {
       clearTimers()
-      stopAmbient()
+      stopAllAudio()
+      window.removeEventListener('pagehide', handlePageHide)
     }
-  }, [clearTimers, startCountdown, stopAmbient])
+  }, [clearTimers, startCountdown, stopAllAudio])
 
   const toggleQueuedBet = () => {
     if (rocketState !== 'countdown') return
 
     if (queuedBet) {
       setQueuedBet(false)
-      setRoundMessage('Mərc ləğv olundu. İstəsən yenidən qoşula bilərsən.')
+      setRoundMessage('Bet cancelled. You can join again anytime before launch.')
       return
     }
 
     const normalizedWager = Math.max(1, Math.round(wager || 0))
     if (normalizedWager > balance) {
-      alert('Balans kifayət etmir!')
+      alert('Not enough balance!')
       return
     }
 
     setWager(normalizedWager)
     setQueuedBet(true)
-    setRoundMessage(`Növbəti raund üçün ${normalizedWager} ⭐ mərc hazırlandı.`)
+    setRoundMessage(`Prepared ${normalizedWager} ⭐ for the next round.`)
   }
 
   const progress = clamp((currentMultiplier - 1) / Math.max(plannedCrashPoint - 1, 0.2), 0, 1)
   const rocketStyle = {
     left: `${16 + progress * 70}%`,
-    bottom: `${16 + Math.pow(progress, 1.45) * 54}%`,
-    transform: `rotate(${72 - progress * 60}deg)`,
+    bottom: `${16 + Math.pow(progress, 1.35) * 54}%`,
+    transform: `translate3d(0, 0, 0) rotate(${72 - progress * 60}deg)`,
   }
 
-  const multiplierColor = rocketState === 'crash'
-    ? '#ff7070'
-    : rocketState === 'win'
-      ? '#72ff9f'
-      : '#ffffff'
+  const multiplierColor = rocketState === 'crash' ? '#ff7070' : rocketState === 'win' ? '#72ff9f' : '#ffffff'
 
   return (
     <>
@@ -258,12 +276,12 @@ export default function CrashGame() {
           <LineLayer3 style={{ opacity: currentMultiplier > 1 ? 1 : 0 }} />
 
           <RoundBadge>
-            {rocketState === 'countdown' ? `Uçuşa ${countdown}s qaldı` : rocketState === 'flying' ? 'Raund aktivdir' : 'Raund bitdi'}
+            {rocketState === 'countdown' ? `Launch in ${countdown}s` : rocketState === 'flying' ? 'Round in progress' : 'Round finished'}
           </RoundBadge>
           <RoundInfo>
-            Aktiv mərc: {activeWager || 0} ⭐
+            Active wager: {activeWager || 0} ⭐
             <br />
-            Hədəf: {(rocketState === 'flying' || rocketState === 'win') ? activeTarget.toFixed(2) : multiplierTarget.toFixed(2)}x
+            Target: {(rocketState === 'flying' || rocketState === 'win') ? activeTarget.toFixed(2) : multiplierTarget.toFixed(2)}x
           </RoundInfo>
 
           <CrashCurve $progress={progress} />
@@ -276,7 +294,7 @@ export default function CrashGame() {
       <GambaUi.Portal target="controls">
         <ControlsGrid>
           <ControlCard>
-            <CardLabel>Mərc • Telegram Stars</CardLabel>
+            <CardLabel>Wager • Telegram Stars</CardLabel>
             <ValueRow>
               <StepButton type="button" onClick={() => setWager((value) => Math.max(1, value - 1))}>-</StepButton>
               <ValueInput
@@ -297,7 +315,7 @@ export default function CrashGame() {
           </ControlCard>
 
           <ControlCard>
-            <CardLabel>Hədəf əmsalı</CardLabel>
+            <CardLabel>Target multiplier</CardLabel>
             <ValueRow>
               <StepButton type="button" onClick={() => setMultiplierTarget((value) => Number(clamp(Number((value - 0.25).toFixed(2)), 1.25, 15).toFixed(2)))}>-</StepButton>
               <ValueInput
@@ -325,10 +343,10 @@ export default function CrashGame() {
             disabled={rocketState !== 'countdown'}
           >
             {rocketState !== 'countdown'
-              ? 'Raund uçuşdadır'
+              ? 'Flight in progress'
               : queuedBet
-                ? `Qoşuldun • ${wager} ⭐ • Ləğv et`
-                : 'Növbəti raunda qoşul'}
+                ? `Joined • ${wager} ⭐ • Cancel`
+                : 'Join next round'}
           </MainAction>
         </ControlsGrid>
       </GambaUi.Portal>
