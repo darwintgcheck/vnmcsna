@@ -13,7 +13,7 @@ async function parseResponse(response: Response) {
   }
 
   if (!response.ok) {
-    throw new Error(data?.error || `Sorğu uğursuz oldu (${response.status})`)
+    throw new Error(data?.error || `Request failed (${response.status})`)
   }
 
   return data
