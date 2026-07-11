@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import styled from 'styled-components'
 import { useSound } from 'gamba-react-ui-v2'
 import { ItemPreview } from './ItemPreview'
 import { Slot } from './Slot'
@@ -20,23 +21,60 @@ import {
 } from './constants'
 import { getSlotCombination } from './utils'
 import { useUserStore } from '../hooks/useUserStore'
+import { didPlayerWin, pickRandom } from '../../utils/houseEdge'
 
-function Messages({ messages }: {messages: string[]}) {
+const Controls = styled.div`
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  width: 100%;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+`
+
+const WagerInput = styled.input`
+  width: 100%;
+  min-height: 54px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  padding: 0 16px;
+  font-size: 18px;
+  outline: none;
+`
+
+const PlayButton = styled.button`
+  min-width: 140px;
+  min-height: 54px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fbbf24, #fb7185);
+  color: #140b0b;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+`
+
+function Messages({ messages }: { messages: string[] }) {
   const [messageIndex, setMessageIndex] = React.useState(0)
-  React.useEffect(
-    () => {
-      const timeout = setInterval(() => {
-        setMessageIndex((x) => (x + 1) % messages.length)
-      }, 2500)
-      return () => clearInterval(timeout)
-    },
-    [messages],
-  )
-  return (
-    <>
-      {messages[messageIndex]}
-    </>
-  )
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setMessageIndex((x) => (x + 1) % messages.length)
+    }, 2500)
+    return () => clearInterval(timer)
+  }, [messages])
+
+  return <>{messages[messageIndex]}</>
 }
 
 export default function Slots() {
@@ -45,10 +83,9 @@ export default function Slots() {
   const [result, setResult] = React.useState<number | null>(null)
   const [good, setGood] = React.useState(false)
   const [revealedSlots, setRevealedSlots] = React.useState(NUM_SLOTS)
-  const [wager, setWager] = React.useState(0)
-  const [combination, setCombination] = React.useState(
-    Array.from({ length: NUM_SLOTS }).map(() => SLOT_ITEMS[0]),
-  )
+  const [wager, setWager] = React.useState(10)
+  const [combination, setCombination] = React.useState(Array.from({ length: NUM_SLOTS }).map(() => SLOT_ITEMS[0]))
+
   const sounds = useSound({
     win: SOUND_WIN,
     lose: SOUND_LOSE,
@@ -57,38 +94,40 @@ export default function Slots() {
     spin: SOUND_SPIN,
     play: SOUND_PLAY,
   })
-  const timeout = useRef<any>()
 
-  useEffect(
-    () => {
-      return () => {
-        timeout.current && clearTimeout(timeout.current)
+  const timeout = useRef<number | null>(null)
+
+  const stopSounds = React.useCallback(() => {
+    sounds.sounds.spin.player.stop()
+    sounds.sounds.reveal.player.stop()
+    sounds.sounds.revealLegendary.player.stop()
+  }, [sounds])
+
+  useEffect(() => {
+    return () => {
+      if (timeout.current) {
+        clearTimeout(timeout.current)
       }
-    },
-    [],
-  )
+      stopSounds()
+    }
+  }, [stopSounds])
 
-  const revealSlot = (combination: SlotItem[], slot = 0) => {
+  const revealSlot = (nextCombination: SlotItem[], slot = 0) => {
     sounds.play('reveal', { playbackRate: 1.1 })
 
-    const allSame = combination.slice(0, slot + 1).every((item, index, arr) => !index || item === arr[index - 1])
+    const allSame = nextCombination.slice(0, slot + 1).every((item, index, arr) => !index || item === arr[index - 1])
 
-    if (combination[slot].multiplier >= LEGENDARY_THRESHOLD) {
-      if (allSame) {
-        sounds.play('revealLegendary')
-      }
+    if (nextCombination[slot].multiplier >= LEGENDARY_THRESHOLD && allSame) {
+      sounds.play('revealLegendary')
     }
 
     setRevealedSlots(slot + 1)
 
     if (slot < NUM_SLOTS - 1) {
-      timeout.current = setTimeout(
-        () => revealSlot(combination, slot + 1),
-        REVEAL_SLOT_DELAY,
-      )
-    } else if (slot === NUM_SLOTS - 1) {
-      sounds.sounds.spin.player.stop()
-      timeout.current = setTimeout(() => {
+      timeout.current = window.setTimeout(() => revealSlot(nextCombination, slot + 1), REVEAL_SLOT_DELAY)
+    } else {
+      stopSounds()
+      timeout.current = window.setTimeout(() => {
         setSpinning(false)
         if (allSame) {
           setGood(true)
@@ -102,7 +141,7 @@ export default function Slots() {
 
   const play = async () => {
     if (balance < wager) {
-      alert("Balans kifayət deyil!")
+      alert('Not enough balance!')
       return
     }
 
@@ -114,21 +153,22 @@ export default function Slots() {
     setRevealedSlots(0)
     setGood(false)
 
-    const startTime = Date.now()
-    sounds.play('spin', { playbackRate: .5 })
-
-    const randomMultiplier = [0, 0, 2, 5, 10][Math.floor(Math.random() * 5)]
+    const winningMultiplier = pickRandom([2, 5, 7, 10])
+    const didWinRound = didPlayerWin()
+    const randomMultiplier = didWinRound ? winningMultiplier : 0
     const payout = wager * randomMultiplier
 
-    const resultDelay = Date.now() - startTime
+    const resultDelay = SPIN_DELAY
     const revealDelay = Math.max(0, SPIN_DELAY - resultDelay)
 
-    const combination = getSlotCombination(NUM_SLOTS, randomMultiplier, Array(NUM_SLOTS).fill(1))
-    setCombination(combination)
+    const nextCombination = getSlotCombination(NUM_SLOTS, randomMultiplier, Array(NUM_SLOTS).fill(1))
+    setCombination(nextCombination)
     setResult(payout)
 
-    timeout.current = setTimeout(() => {
-      revealSlot(combination)
+    sounds.play('spin', { playbackRate: 0.65 })
+
+    timeout.current = window.setTimeout(() => {
+      revealSlot(nextCombination)
       if (payout > 0) {
         updateBalance(balance - wager + payout)
       }
@@ -140,51 +180,34 @@ export default function Slots() {
       <StyledSlots>
         <div>
           <ItemPreview betArray={Array(NUM_SLOTS).fill(1)} />
-          <div className={'slots'}>
+          <div className="slots">
             {combination.map((slot, i) => (
-              <Slot
-                key={i}
-                index={i}
-                revealed={revealedSlots > i}
-                item={slot}
-                good={good}
-              />
+              <Slot key={i} index={i} revealed={revealedSlots > i} item={slot} good={good} />
             ))}
           </div>
           <div className="result" data-good={good}>
             {spinning ? (
-              <Messages
-                messages={[
-                  'Spinning!',
-                  'Good luck',
-                ]}
-              />
+              <Messages messages={['Spinning…', 'Good luck', 'Reels are rolling']} />
             ) : result !== null ? (
-              <>
-                Payout: {result}
-              </>
+              <>Payout: {result} ⭐</>
             ) : (
-              <Messages
-                messages={[
-                  'SPIN ME!',
-                  'FEELING LUCKY?',
-                ]}
-              />
+              <Messages messages={['Spin the reels', 'Feeling lucky?', 'Classic slot action']} />
             )}
           </div>
         </div>
       </StyledSlots>
-      <div style={{ marginTop: 20 }}>
-        <input
+      <Controls>
+        <WagerInput
           type="number"
           value={wager}
-          onChange={(e) => setWager(Number(e.target.value))}
-          placeholder="Məbləği daxil et"
+          onChange={(e) => setWager(Math.max(1, Math.round(Number(e.target.value) || 1)))}
+          placeholder="Enter wager"
+          min={1}
         />
-        <button disabled={!wager || spinning} onClick={play}>
-          Spin
-        </button>
-      </div>
+        <PlayButton disabled={!wager || spinning} onClick={play}>
+          {spinning ? 'Spinning…' : 'Spin'}
+        </PlayButton>
+      </Controls>
     </>
   )
 }
