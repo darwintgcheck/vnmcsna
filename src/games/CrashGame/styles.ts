@@ -96,7 +96,7 @@ export const ScreenWrapper = styled.div`
   height: 100%;
   position: relative;
   overflow: hidden;
-  background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
 `
 
 export const CrashCurve = styled.div<{ $progress: number }>`
@@ -194,7 +194,8 @@ export const Rocket = styled.div`
   background-image: url(${rocketAnimation});
   background-size: contain;
   background-repeat: no-repeat;
-  transition: all 0.08s linear;
+  transition: left 0.016s linear, bottom 0.016s linear, transform 0.016s linear;
+  will-change: left, bottom, transform;
   z-index: 2;
 `
 
