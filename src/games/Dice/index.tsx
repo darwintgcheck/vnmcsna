@@ -2,6 +2,7 @@ import { GambaUi, useSound } from 'gamba-react-ui-v2'
 import React from 'react'
 import styled from 'styled-components'
 import { useUserStore } from '../hooks/useUserStore'
+import { didPlayerWin } from '../../utils/houseEdge'
 import CustomSlider from './Slider'
 import { SOUND_LOSE, SOUND_PLAY, SOUND_TICK, SOUND_WIN } from './constants'
 import { Container, Result, RollUnder, Stats } from './styles'
@@ -35,34 +36,6 @@ const PlayButton = styled.button`
   }
 `
 
-const calculateArraySize = (odds: number): number => {
-  const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a)
-  return 100 / gcd(100, odds)
-}
-
-export const outcomes = (odds: number) => {
-  const arraySize = calculateArraySize(odds)
-  const payout = (100 / odds).toFixed(4)
-
-  const payoutArray = Array.from({ length: arraySize }).map((_, index) =>
-    index < (arraySize * (odds / 100)) ? parseFloat(payout) : 0,
-  )
-
-  const totalValue = payoutArray.reduce((acc, curr) => acc + curr, 0)
-
-  if (totalValue > arraySize) {
-    for (let i = payoutArray.length - 1; i >= 0; i--) {
-      if (payoutArray[i] > 0) {
-        payoutArray[i] -= totalValue - arraySize
-        payoutArray[i] = parseFloat(payoutArray[i].toFixed(4))
-        break
-      }
-    }
-  }
-
-  return payoutArray
-}
-
 export default function Dice() {
   const { balance, withdrawBalance, addBalance } = useUserStore()
   const [wager, setWager] = React.useState(10)
@@ -77,29 +50,28 @@ export default function Dice() {
     tick: SOUND_TICK,
   })
 
-  const multiplier = 100 / rollUnderIndex
+  const playerChance = 35
+  const multiplier = Number((100 / playerChance).toFixed(2))
   const maxWin = Math.round(multiplier * wager)
   const canPlay = !isPlaying && wager > 0 && wager <= balance
 
   const play = async () => {
     if (isPlaying) return
     if (!withdrawBalance(wager, 'dice-bet')) {
-      alert('Balans kifayət etmir!')
+      alert('Not enough balance!')
       return
     }
 
     sounds.play('play')
     setIsPlaying(true)
 
-    const win = Math.random() * 100 < rollUnderIndex
-    const resultNum = win
-      ? Math.floor(Math.random() * rollUnderIndex)
-      : Math.floor(Math.random() * (100 - rollUnderIndex) + rollUnderIndex)
+    const won = didPlayerWin()
+    const resultNum = won ? Math.floor(Math.random() * rollUnderIndex) : Math.floor(Math.random() * (100 - rollUnderIndex) + rollUnderIndex)
 
     setResultIndex(resultNum)
 
     window.setTimeout(() => {
-      if (win) {
+      if (won) {
         const payout = Math.round(wager * multiplier)
         addBalance(payout, 'dice-win')
         sounds.play('win')
@@ -118,21 +90,21 @@ export default function Dice() {
             <RollUnder>
               <div>
                 <div>{rollUnderIndex}</div>
-                <div>Altına düşsün</div>
+                <div>Roll under</div>
               </div>
             </RollUnder>
             <Stats>
               <div>
-                <div>{rollUnderIndex}%</div>
-                <div>Qazanma şansı</div>
+                <div>{playerChance}%</div>
+                <div>Player win chance</div>
               </div>
               <div>
                 <div>{multiplier.toFixed(2)}x</div>
-                <div>Əmsal</div>
+                <div>Multiplier</div>
               </div>
               <div>
                 <div>{maxWin} ⭐</div>
-                <div>Maksimum uduş</div>
+                <div>Maximum payout</div>
               </div>
             </Stats>
             <div style={{ position: 'relative' }}>
@@ -166,10 +138,10 @@ export default function Dice() {
             onChange={(e) => setWager(Math.max(1, Math.round(Number(e.target.value) || 0)))}
             min={1}
             max={balance}
-            placeholder="Mərc məbləği"
+            placeholder="Wager amount"
           />
           <PlayButton onClick={play} disabled={!canPlay}>
-            {isPlaying ? 'Atılır...' : 'At'}
+            {isPlaying ? 'Rolling…' : 'Roll'}
           </PlayButton>
         </div>
       </GambaUi.Portal>
