@@ -17,7 +17,6 @@ export default function App() {
   const initialized = useUserStore((state) => state.initialized)
   const loading = useUserStore((state) => state.loading)
   const user = useUserStore((state) => state.currentUser)
-  const error = useUserStore((state) => state.error)
   const refreshUser = useUserStore((state) => state.refreshUser)
 
   const [depositOpen, setDepositOpen] = React.useState(false)
@@ -73,7 +72,6 @@ export default function App() {
       {!loading && initialized && !user && <AuthModal />}
       <MainWrapper>
         {loading && <p style={{ textAlign: 'center' }}>Loading…</p>}
-        {!loading && error && !user && <p style={{ textAlign: 'center', color: '#ff8080' }}>{error}</p>}
         {!loading && user && (
           <Routes>
             <Route path="/" element={<Dashboard />} />
