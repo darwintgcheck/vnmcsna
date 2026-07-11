@@ -236,9 +236,9 @@ export default function Blackjack(props: BlackjackConfig) {
               {profit !== null && (
                 <Profit key={profit}>
                   {profit > 0 ? (
-                    <>₾ {profit} (+{Math.round((profit / initialWager) * 100 - 100)}%)</>
+                    <>{Math.round(profit)} ⭐ (+{Math.round((profit / initialWager) * 100 - 100)}%)</>
                   ) : (
-                    <>You Lost</>
+                    <>Uduzdun</>
                   )}
                 </Profit>
               )}
@@ -250,7 +250,7 @@ export default function Blackjack(props: BlackjackConfig) {
       <GambaUi.Portal target="controls">
         <>
           <GambaUi.WagerInput value={initialWager} onChange={setInitialWager} />
-          <GambaUi.PlayButton onClick={play}>Deal Cards</GambaUi.PlayButton>
+          <GambaUi.PlayButton onClick={play}>Kartları payla</GambaUi.PlayButton>
         </>
       </GambaUi.Portal>
     </>
