@@ -38,7 +38,14 @@ export function authTelegram(initData: string) {
   })
 }
 
-export function authDev(payload: { telegramId: number; firstName: string; username?: string }) {
+export function authDev(payload: {
+  telegramId: number
+  firstName: string
+  lastName?: string
+  username?: string
+  photoUrl?: string
+  languageCode?: string
+}) {
   return apiRequest<{ user: User; config: PublicConfig }>('/api/auth/dev', {
     method: 'POST',
     body: JSON.stringify(payload),
