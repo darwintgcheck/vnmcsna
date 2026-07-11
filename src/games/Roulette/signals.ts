@@ -6,35 +6,28 @@ export const hovered = signal<number[]>([])
 export const results = signal<number[]>([])
 export const selectedChip = signal<number>(CHIPS[0])
 
-export const distributedChips = computed(
-  () => {
-    const placements = Object.entries(chipPlacements.value)
-    const distributed = Array.from({ length: NUMBERS }).map(() => 0)
-    for (const [id, amount] of placements) {
-      const square = tableLayout[id]
-      const divided = Number(BigInt(amount * 10_000) / BigInt(square.numbers.length))
-      for (const number of square.numbers) {
-        distributed[number - 1] += divided
-      }
+export const distributedChips = computed(() => {
+  const placements = Object.entries(chipPlacements.value)
+  const distributed = Array.from({ length: NUMBERS }).map(() => 0)
+
+  for (const [id, amount] of placements) {
+    const square = tableLayout[id]
+    if (!square || amount <= 0) continue
+    const divided = amount / square.numbers.length
+    for (const number of square.numbers) {
+      distributed[number - 1] += divided
     }
-    return distributed
-  },
-)
+  }
 
-export const totalChipValue = computed(
-  () => {
-    return Math.floor(distributedChips.value.reduce((a, b) => a + b, 0))
-  },
-)
+  return distributed
+})
 
-export const bet = computed(
-  () => {
-    const bet = distributedChips.value.map((amount) => {
-      return Number(BigInt(amount * distributedChips.value.length * 10_000) / BigInt(totalChipValue.value || 1)) / 10_000
-    })
-    return bet
-  },
-)
+export const totalChipValue = computed(() => Object.values(chipPlacements.value).reduce((sum, amount) => sum + amount, 0))
+
+export const bet = computed(() => {
+  const total = totalChipValue.value || 1
+  return distributedChips.value.map((amount) => Number(((amount * distributedChips.value.length) / total).toFixed(4)))
+})
 
 export const addResult = (index: number) => {
   results.value = [...results.value, index]
@@ -58,7 +51,7 @@ export const addChips = (id: string, amount: number) => {
 export const removeChips = (id: string) => {
   chipPlacements.value = {
     ...chipPlacements.value,
-    [id]: 0,
+    [id]: Math.max(0, getChips(id) - selectedChip.value),
   }
 }
 
