@@ -1,54 +1,45 @@
-export interface TelegramWebAppUser {
-  id: number
-  first_name?: string
-  last_name?: string
-  username?: string
-  photo_url?: string
-  language_code?: string
-}
+import styled from 'styled-components'
 
-export interface User {
-  _id?: string
-  telegramId: number
-  username?: string
-  firstName: string
-  lastName?: string
-  displayName: string
-  photoUrl?: string
-  languageCode?: string
-  balance: number
-  blocked?: boolean
-  totalDeposited?: number
-  totalWithdrawn?: number
-  createdAt?: string
-  lastLoginAt?: string
-}
+export const MainWrapper = styled.div`
+  position: relative;
+  width: min(1120px, 100%);
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: calc(110px + env(safe-area-inset-top));
 
-export interface PublicConfig {
-  siteName: string
-  botUsername?: string
-  adminGiftUsername?: string
-  depositMode: 'invoice' | 'gift' | 'invoice_or_gift'
-  withdrawFeePercent: number
-}
+  @media (max-width: 720px) {
+    padding: 14px;
+    gap: 16px;
+    margin-top: calc(138px + env(safe-area-inset-top));
+  }
 
-export interface DepositRequestResult {
-  ok: boolean
-  mode: 'invoice' | 'gift' | 'invoice_or_gift'
-  requestId?: string
-  invoiceLink?: string
-  amount: number
-  adminGiftUsername?: string
-  botUsername?: string
-  message?: string
-}
+  @media (min-width: 900px) {
+    padding: 22px;
+  }
+`
 
-export interface WithdrawRequestResult {
-  ok: boolean
-  requestId: string
-  amount: number
-  feeAmount: number
-  netAmount: number
-  status: string
-  user?: User
-}
+export const TosWrapper = styled.div`
+  position: relative;
+
+  &:after {
+    content: ' ';
+    background: linear-gradient(180deg, transparent, #15151f);
+    height: 50px;
+    pointer-events: none;
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+  }
+`
+
+export const TosInner = styled.div`
+  max-height: 400px;
+  padding: 10px;
+  overflow: auto;
+  position: relative;
+`
