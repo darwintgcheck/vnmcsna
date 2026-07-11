@@ -17,6 +17,7 @@ export interface User {
   photoUrl?: string
   languageCode?: string
   balance: number
+  blocked?: boolean
   totalDeposited?: number
   totalWithdrawn?: number
   createdAt?: string
