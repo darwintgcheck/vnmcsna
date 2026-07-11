@@ -1,7 +1,7 @@
 import { StoreApi, create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import { authDev, authTelegram, createDeposit, createWithdraw, fetchUser, syncBalance } from '../lib/api'
-import { getTelegramInitData, getTelegramUnsafeUser, isTelegramMiniApp, prepareTelegramUi } from '../lib/telegram'
+import { authDev, authMiniApp, authTelegram, createDeposit, createWithdraw, fetchUser, syncBalance } from '../lib/api'
+import { getTelegramUnsafeUser, isTelegramMiniApp, prepareTelegramUi } from '../lib/telegram'
 import type { DepositRequestResult, PublicConfig, User, WithdrawRequestResult } from '../types'
 
 type GameMode = 'real' | 'demo'
@@ -91,7 +91,8 @@ export const useUserStore = create<UserStore>()(
           const unsafeUser = getTelegramUnsafeUser()
 
           if (isTelegramMiniApp()) {
-            const initData = getTelegramInitData()
+            const tg = (window as any).Telegram?.WebApp
+            const initData = String(tg?.initData || '')
 
             if (initData) {
               try {
@@ -105,6 +106,17 @@ export const useUserStore = create<UserStore>()(
             }
 
             if (unsafeUser?.id) {
+              try {
+                const response = await authMiniApp({ initData, user: unsafeUser })
+                applyUser(set, get, response.user)
+                set({ config: response.config, initialized: true, loading: false, error: null })
+                return
+              } catch (fallbackError: any) {
+                console.warn('Mini-app fallback auth failed:', fallbackError)
+              }
+            }
+
+            if (unsafeUser?.id && import.meta.env.DEV) {
               const response = await authDev(toDevAuthPayload(unsafeUser))
               applyUser(set, get, response.user)
               set({ config: response.config, initialized: true, loading: false, error: null })
