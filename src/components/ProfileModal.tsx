@@ -5,7 +5,7 @@ import UserAvatar from './UserAvatar'
 
 const Wrap = styled.div`
   width: min(100%, 480px);
-  padding: 28px;
+  padding: 32px 28px 28px;
 `
 
 const ProfileHeader = styled.div`
@@ -14,6 +14,13 @@ const ProfileHeader = styled.div`
   align-items: center;
   gap: 14px;
   padding-top: 10px;
+`
+
+const AvatarFrame = styled.div`
+  padding: 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(140, 98, 255, 0.9), rgba(94, 231, 255, 0.92));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
 `
 
 const ProfileName = styled.div`
@@ -120,7 +127,9 @@ export default function ProfileModal({ onClose, onDeposit, onWithdraw }: { onClo
     <Modal onClose={onClose}>
       <Wrap>
         <ProfileHeader>
-          <UserAvatar name={user.displayName} photoUrl={user.photoUrl} size={84} />
+          <AvatarFrame>
+            <UserAvatar name={user.displayName} photoUrl={user.photoUrl} size={84} />
+          </AvatarFrame>
           <div>
             <ProfileName>{user.displayName || user.firstName}</ProfileName>
             <ProfileSub>{user.username ? `@${user.username}` : 'Telegram user'}</ProfileSub>
