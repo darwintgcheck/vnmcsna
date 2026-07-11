@@ -4,6 +4,10 @@ import { authDev, authTelegram, createDeposit, createWithdraw, fetchUser, syncBa
 import { getTelegramInitData, getTelegramUnsafeUser, isTelegramMiniApp, prepareTelegramUi } from '../lib/telegram'
 import type { DepositRequestResult, PublicConfig, User, WithdrawRequestResult } from '../types'
 
+type GameMode = 'real' | 'demo'
+
+const DEMO_START_BALANCE = 1000
+
 interface UserStore {
   initialized: boolean
   loading: boolean
@@ -11,11 +15,16 @@ interface UserStore {
   currentUser: User | null
   user: User | null
   balance: number
+  realBalance: number
+  demoBalance: number
+  gameMode: GameMode
+  activeGameId: string | null
   config: PublicConfig | null
   set: StoreApi<UserStore>['setState']
   setUser: (user: User | null) => void
   init: () => Promise<void>
   refreshUser: () => Promise<void>
+  setGameMode: (mode: GameMode, gameId?: string) => void
   updateBalance: (nextBalance: number, reason?: string) => void
   addBalance: (amount: number, reason?: string) => void
   withdrawBalance: (amount: number, reason?: string) => boolean
@@ -29,15 +38,32 @@ const normalizeBalance = (value: number) => Number(Math.max(0, Number(value || 0
 const toDevAuthPayload = (user: ReturnType<typeof getTelegramUnsafeUser>) => ({
   telegramId: Number(user?.id || 0),
   firstName: user?.first_name || 'Telegram',
+  lastName: user?.last_name,
   username: user?.username,
+  photoUrl: user?.photo_url,
+  languageCode: user?.language_code,
 })
 
-const applyUser = (set: StoreApi<UserStore>['setState'], user: User | null) => {
-  set({
+const buildUserState = (state: Pick<UserStore, 'gameMode' | 'demoBalance'>, user: User | null) => {
+  const realBalance = normalizeBalance(user?.balance ?? 0)
+  return {
     currentUser: user,
     user,
-    balance: user?.balance ?? 0,
-  })
+    realBalance,
+    balance: state.gameMode === 'demo' ? normalizeBalance(state.demoBalance) : realBalance,
+  }
+}
+
+const applyUser = (set: StoreApi<UserStore>['setState'], get: StoreApi<UserStore>['getState'], user: User | null) => {
+  set((state) => ({
+    ...buildUserState(
+      {
+        gameMode: state.gameMode,
+        demoBalance: state.demoBalance,
+      },
+      user,
+    ),
+  }))
 }
 
 export const useUserStore = create<UserStore>()(
@@ -49,12 +75,17 @@ export const useUserStore = create<UserStore>()(
       currentUser: null,
       user: null,
       balance: 0,
+      realBalance: 0,
+      demoBalance: DEMO_START_BALANCE,
+      gameMode: 'real',
+      activeGameId: null,
       config: null,
       set,
-      setUser: (user) => applyUser(set, user),
+      setUser: (user) => applyUser(set, get, user),
       init: async () => {
         if (get().loading) return
         set({ loading: true, error: null })
+
         try {
           prepareTelegramUi()
           const unsafeUser = getTelegramUnsafeUser()
@@ -65,8 +96,8 @@ export const useUserStore = create<UserStore>()(
             if (initData) {
               try {
                 const response = await authTelegram(initData)
-                applyUser(set, response.user)
-                set({ config: response.config, initialized: true, loading: false })
+                applyUser(set, get, response.user)
+                set({ config: response.config, initialized: true, loading: false, error: null })
                 return
               } catch (telegramError: any) {
                 console.warn('Telegram auth failed, trying mini-app fallback:', telegramError)
@@ -75,27 +106,24 @@ export const useUserStore = create<UserStore>()(
 
             if (unsafeUser?.id) {
               const response = await authDev(toDevAuthPayload(unsafeUser))
-              applyUser(set, response.user)
+              applyUser(set, get, response.user)
               set({ config: response.config, initialized: true, loading: false, error: null })
               return
             }
 
-            throw new Error('Telegram məlumatı tapılmadı')
+            throw new Error('Telegram hesabı oxunmadı. Mini App-i bot daxilindən yenidən açın.')
           }
 
-          if (unsafeUser?.id) {
-            const response = await authDev(toDevAuthPayload(unsafeUser))
-            applyUser(set, response.user)
-            set({ config: response.config, initialized: true, loading: false })
-            return
-          }
-
-          const saved = window.localStorage.getItem('venom-dev-user')
-          if (saved) {
-            const response = await authDev(JSON.parse(saved))
-            applyUser(set, response.user)
-            set({ config: response.config, initialized: true, loading: false })
-            return
+          const persistedUser = get().currentUser
+          if (persistedUser?.telegramId) {
+            try {
+              const response = await fetchUser(persistedUser.telegramId)
+              applyUser(set, get, response.user)
+              set({ config: response.config, initialized: true, loading: false, error: null })
+              return
+            } catch {
+              applyUser(set, get, null)
+            }
           }
 
           set({ initialized: true, loading: false })
@@ -111,36 +139,60 @@ export const useUserStore = create<UserStore>()(
         const telegramId = get().currentUser?.telegramId
         if (!telegramId) return
         const response = await fetchUser(telegramId)
-        applyUser(set, response.user)
+        applyUser(set, get, response.user)
         set({ config: response.config, error: null })
+      },
+      setGameMode: (mode, gameId) => {
+        const currentUser = get().currentUser
+        const nextDemoBalance = mode === 'demo' ? DEMO_START_BALANCE : get().demoBalance
+        const nextRealBalance = normalizeBalance(currentUser?.balance ?? get().realBalance)
+
+        set({
+          gameMode: mode,
+          activeGameId: gameId || null,
+          demoBalance: nextDemoBalance,
+          realBalance: nextRealBalance,
+          balance: mode === 'demo' ? nextDemoBalance : nextRealBalance,
+          error: null,
+        })
       },
       updateBalance: (nextBalance, reason = 'game-sync') => {
         const current = get().currentUser
+        const safeBalance = normalizeBalance(nextBalance)
+
+        if (get().gameMode === 'demo') {
+          set({ demoBalance: safeBalance, balance: safeBalance, error: null })
+          return
+        }
+
         if (!current) return
 
-        const safeBalance = normalizeBalance(nextBalance)
         const nextUser = { ...current, balance: safeBalance }
-        applyUser(set, nextUser)
-        set({ error: null })
+        set({
+          currentUser: nextUser,
+          user: nextUser,
+          realBalance: safeBalance,
+          balance: safeBalance,
+          error: null,
+        })
 
         void syncBalance({ telegramId: current.telegramId, balance: safeBalance, reason })
           .then((response) => {
-            applyUser(set, response.user)
+            applyUser(set, get, response.user)
           })
           .catch((error: any) => {
             set({ error: error?.message || 'Balans sinxronlaşmadı' })
           })
       },
       addBalance: (amount, reason = 'balance-add') => {
-        const current = get().currentUser
-        if (!current) return
-        get().updateBalance((current.balance || 0) + Number(amount || 0), reason)
+        const numericAmount = Number(amount || 0)
+        if (numericAmount <= 0) return
+        get().updateBalance(get().balance + numericAmount, reason)
       },
       withdrawBalance: (amount, reason = 'balance-withdraw') => {
-        const current = get().currentUser
         const numericAmount = Number(amount || 0)
-        if (!current || numericAmount <= 0 || current.balance < numericAmount) return false
-        get().updateBalance(current.balance - numericAmount, reason)
+        if (numericAmount <= 0 || get().balance < numericAmount) return false
+        get().updateBalance(get().balance - numericAmount, reason)
         return true
       },
       requestDeposit: async (amount) => {
@@ -152,22 +204,33 @@ export const useUserStore = create<UserStore>()(
         const current = get().currentUser
         if (!current) throw new Error('İstifadəçi tapılmadı')
         const result = await createWithdraw({ telegramId: current.telegramId, amount })
+
         if (result.user) {
-          applyUser(set, result.user)
+          applyUser(set, get, result.user)
         } else {
-          applyUser(set, {
+          const nextUser = {
             ...current,
             balance: normalizeBalance(current.balance - amount),
             totalWithdrawn: normalizeBalance((current.totalWithdrawn || 0) + result.netAmount),
-          })
+          }
+          applyUser(set, get, nextUser)
         }
+
         return result
       },
       logout: () => {
         window.localStorage.removeItem('venom-user-store')
-        window.localStorage.removeItem('venom-dev-user')
-        applyUser(set, null)
-        set({ error: null, initialized: true })
+        applyUser(set, get, null)
+        set({
+          error: null,
+          initialized: true,
+          realBalance: 0,
+          demoBalance: DEMO_START_BALANCE,
+          gameMode: 'real',
+          activeGameId: null,
+          balance: 0,
+          config: null,
+        })
       },
     }),
     {
@@ -176,7 +239,7 @@ export const useUserStore = create<UserStore>()(
       partialize: (state) => ({
         currentUser: state.currentUser,
         user: state.user,
-        balance: state.balance,
+        realBalance: state.realBalance,
         config: state.config,
       }),
     },
