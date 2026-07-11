@@ -1,7 +1,7 @@
-// src/games/Blackjack.tsx
 import React from 'react'
 import { GambaUi, useSound, useWagerInput } from 'gamba-react-ui-v2'
 import { useUserStore } from '../hooks/useUserStore'
+import { didPlayerWin, pickRandom } from '../../utils/houseEdge'
 import {
   CARD_VALUES,
   RANKS,
@@ -15,14 +15,7 @@ import {
   SOUND_WIN,
   SOUND_JACKPOT,
 } from './constants'
-import {
-  Card,
-  CardContainer,
-  CardsContainer,
-  Container,
-  Profit,
-  CardArea,
-} from './styles'
+import { Card, CardContainer, CardsContainer, Container, Profit, CardArea } from './styles'
 
 const randomRank = () => Math.floor(Math.random() * RANKS)
 const randomSuit = () => Math.floor(Math.random() * SUITS)
@@ -44,7 +37,7 @@ export interface BlackjackConfig {
 }
 
 export default function Blackjack(props: BlackjackConfig) {
-  const { balance, withdrawBalance, addBalance } = useUserStore()
+  const { withdrawBalance, addBalance } = useUserStore()
   const [playerCards, setPlayerCards] = React.useState<CardType[]>([])
   const [dealerCards, setDealerCards] = React.useState<CardType[]>([])
   const [initialWager, setInitialWager] = useWagerInput()
@@ -66,19 +59,16 @@ export default function Blackjack(props: BlackjackConfig) {
   }
 
   const play = async () => {
-    // balans yoxla
-    if (!withdrawBalance(initialWager)) {
-      alert('Balansınız kifayət etmir!')
+    if (!withdrawBalance(initialWager, 'blackjack-bet')) {
+      alert('Not enough balance!')
       return
     }
 
     resetGame()
     sounds.play('play')
 
-    // payout ehtimalları
-    const betArray = [2.5, 2.5, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    const rand = Math.floor(Math.random() * betArray.length)
-    const payoutMultiplier = betArray[rand]
+    const didWinRound = didPlayerWin()
+    const payoutMultiplier = didWinRound ? pickRandom([2, 2, 2, 2, 2, 2.5]) : 0
 
     let newPlayerCards: CardType[] = []
     let newDealerCards: CardType[] = []
@@ -94,13 +84,12 @@ export default function Blackjack(props: BlackjackConfig) {
       newDealerCards = generateWinningHandOver(newPlayerCards)
     }
 
-    // kartları tək-tək göstər
     const dealCards = async () => {
       for (let i = 0; i < 2; i++) {
         if (i < newPlayerCards.length) {
           setPlayerCards((prev) => [...prev, newPlayerCards[i]])
           sounds.play('card')
-          await new Promise((resolve) => setTimeout(resolve, 500))
+          await new Promise((resolve) => setTimeout(resolve, 420))
         }
         if (i === 1 && payoutMultiplier === 2.5) {
           sounds.play('jackpot')
@@ -108,7 +97,7 @@ export default function Blackjack(props: BlackjackConfig) {
         if (i < newDealerCards.length) {
           setDealerCards((prev) => [...prev, newDealerCards[i]])
           sounds.play('card')
-          await new Promise((resolve) => setTimeout(resolve, 500))
+          await new Promise((resolve) => setTimeout(resolve, 420))
         }
       }
     }
@@ -117,13 +106,13 @@ export default function Blackjack(props: BlackjackConfig) {
 
     const payout = initialWager * payoutMultiplier
     if (payout > 0) {
-      addBalance(payout)
+      addBalance(payout, 'blackjack-win')
     }
 
     setProfit(payout)
 
     if (payoutMultiplier === 2.5) {
-      // blackjack jackpot
+      // jackpot sound already played above
     } else if (payoutMultiplier > 0) {
       sounds.play('win')
     } else {
@@ -131,10 +120,7 @@ export default function Blackjack(props: BlackjackConfig) {
     }
   }
 
-  // köməkçi funksiyalar
-  const getHandValue = (hand: CardType[]): number => {
-    return hand.reduce((sum, c) => sum + CARD_VALUES[c.rank], 0)
-  }
+  const getHandValue = (hand: CardType[]): number => hand.reduce((sum, currentCard) => sum + CARD_VALUES[currentCard.rank], 0)
 
   const generateBlackjackHand = (): CardType[] => {
     const aceRank = 12
@@ -208,11 +194,11 @@ export default function Blackjack(props: BlackjackConfig) {
               <h2>Dealer&apos;s Hand</h2>
               <CardArea>
                 <CardsContainer>
-                  {dealerCards.map((card) => (
-                    <CardContainer key={card.key}>
-                      <Card color={SUIT_COLORS[card.suit]}>
-                        <div className="rank">{RANK_SYMBOLS[card.rank]}</div>
-                        <div className="suit">{SUIT_SYMBOLS[card.suit]}</div>
+                  {dealerCards.map((currentCard) => (
+                    <CardContainer key={currentCard.key}>
+                      <Card color={SUIT_COLORS[currentCard.suit]}>
+                        <div className="rank">{RANK_SYMBOLS[currentCard.rank]}</div>
+                        <div className="suit">{SUIT_SYMBOLS[currentCard.suit]}</div>
                       </Card>
                     </CardContainer>
                   ))}
@@ -222,11 +208,11 @@ export default function Blackjack(props: BlackjackConfig) {
               <h2>Player&apos;s Hand</h2>
               <CardArea>
                 <CardsContainer>
-                  {playerCards.map((card) => (
-                    <CardContainer key={card.key}>
-                      <Card color={SUIT_COLORS[card.suit]}>
-                        <div className="rank">{RANK_SYMBOLS[card.rank]}</div>
-                        <div className="suit">{SUIT_SYMBOLS[card.suit]}</div>
+                  {playerCards.map((currentCard) => (
+                    <CardContainer key={currentCard.key}>
+                      <Card color={SUIT_COLORS[currentCard.suit]}>
+                        <div className="rank">{RANK_SYMBOLS[currentCard.rank]}</div>
+                        <div className="suit">{SUIT_SYMBOLS[currentCard.suit]}</div>
                       </Card>
                     </CardContainer>
                   ))}
@@ -235,11 +221,7 @@ export default function Blackjack(props: BlackjackConfig) {
 
               {profit !== null && (
                 <Profit key={profit}>
-                  {profit > 0 ? (
-                    <>{Math.round(profit)} ⭐ (+{Math.round((profit / initialWager) * 100 - 100)}%)</>
-                  ) : (
-                    <>Uduzdun</>
-                  )}
+                  {profit > 0 ? <>{Math.round(profit)} ⭐ (+{Math.round((profit / initialWager) * 100 - 100)}%)</> : <>Lost</>}
                 </Profit>
               )}
             </div>
@@ -250,7 +232,7 @@ export default function Blackjack(props: BlackjackConfig) {
       <GambaUi.Portal target="controls">
         <>
           <GambaUi.WagerInput value={initialWager} onChange={setInitialWager} />
-          <GambaUi.PlayButton onClick={play}>Kartları payla</GambaUi.PlayButton>
+          <GambaUi.PlayButton onClick={play}>Deal cards</GambaUi.PlayButton>
         </>
       </GambaUi.Portal>
     </>
