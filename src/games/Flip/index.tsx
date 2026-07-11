@@ -4,6 +4,7 @@ import React from 'react'
 import { Coin, TEXTURE_HEADS, TEXTURE_TAILS } from './Coin'
 import { Effect } from './Effect'
 import { useUserStore } from '../hooks/useUserStore'
+import { didPlayerWin } from '../../utils/houseEdge'
 
 import SOUND_COIN from './coin.mp3'
 import SOUND_LOSE from './lose.mp3'
@@ -33,7 +34,7 @@ function Flip() {
 
   const play = async () => {
     if (balance < wager) {
-      alert('Balans kifayət etmir!')
+      alert('Not enough balance!')
       return
     }
 
@@ -41,19 +42,15 @@ function Flip() {
       setWin(false)
       setFlipping(true)
       sounds.play('coin', { playbackRate: 0.5 })
+      withdrawBalance(wager, 'flip-bet')
 
-      // Mərc çıxılır
-      withdrawBalance(wager)
-
-      // Random nəticə (0 = heads, 1 = tails)
-      const result = Math.random() < 0.5 ? 0 : 1
+      const won = didPlayerWin()
+      const result = won ? SIDES[side] : side === 'heads' ? SIDES.tails : SIDES.heads
       setResultIndex(result)
 
-      const didWin = (side === 'heads' && result === 0) || (side === 'tails' && result === 1)
-
-      if (didWin) {
+      if (won) {
         const payout = wager * 2
-        addBalance(payout)
+        addBalance(payout, 'flip-win')
         setWin(true)
         sounds.play('win')
       } else {
@@ -61,7 +58,7 @@ function Flip() {
         sounds.play('lose')
       }
     } finally {
-      setFlipping(false)
+      setTimeout(() => setFlipping(false), 250)
     }
   }
 
@@ -85,41 +82,19 @@ function Flip() {
           {flipping && <Effect color="white" />}
           {win && <Effect color="#42ff78" />}
           <ambientLight intensity={3} />
-          <directionalLight
-            position-z={1}
-            position-y={1}
-            castShadow
-            color="#CCCCCC"
-          />
-          <hemisphereLight
-            intensity={0.5}
-            position={[0, 1, 0]}
-            scale={[1, 1, 1]}
-            color="#ffadad"
-            groundColor="#6666fe"
-          />
+          <directionalLight position-z={1} position-y={1} castShadow color="#CCCCCC" />
+          <hemisphereLight intensity={0.5} position={[0, 1, 0]} scale={[1, 1, 1]} color="#ffadad" groundColor="#6666fe" />
         </Canvas>
       </GambaUi.Portal>
       <GambaUi.Portal target="controls">
-        <GambaUi.WagerInput
-          options={WAGER_OPTIONS}
-          value={wager}
-          onChange={setWager}
-        />
-        <GambaUi.Button
-          onClick={() => setSide(side === 'heads' ? 'tails' : 'heads')}
-        >
+        <GambaUi.WagerInput options={WAGER_OPTIONS} value={wager} onChange={setWager} />
+        <GambaUi.Button onClick={() => setSide(side === 'heads' ? 'tails' : 'heads')}>
           <div style={{ display: 'flex' }}>
-            <img
-              height="20px"
-              src={side === 'heads' ? TEXTURE_HEADS : TEXTURE_TAILS}
-            />
+            <img height="20px" src={side === 'heads' ? TEXTURE_HEADS : TEXTURE_TAILS} />
             {side === 'heads' ? 'Heads' : 'Tails'}
           </div>
         </GambaUi.Button>
-        <GambaUi.PlayButton onClick={play}>
-          Flip
-        </GambaUi.PlayButton>
+        <GambaUi.PlayButton onClick={play}>Flip</GambaUi.PlayButton>
       </GambaUi.Portal>
     </>
   )
