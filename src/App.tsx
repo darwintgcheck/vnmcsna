@@ -30,7 +30,7 @@ export default function App() {
       {withdrawOpen && <WithdrawModal onClose={() => setWithdrawOpen(false)} />}
       {!loading && initialized && !user && <AuthModal />}
       <MainWrapper>
-        {loading && <p style={{ textAlign: 'center' }}>Yüklənir...</p>}
+        {loading && <p style={{ textAlign: 'center' }}>Loading…</p>}
         {!loading && error && !user && <p style={{ textAlign: 'center', color: '#ff8080' }}>{error}</p>}
         {!loading && user && (
           <Routes>
