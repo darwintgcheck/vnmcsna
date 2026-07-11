@@ -71,7 +71,7 @@ export default function AuthModal() {
           <Card>
             <Logo alt="Venom Kazino" src="/logo.svg" />
             <Title>Venom Kazino</Title>
-            <Text>Telegram hesabınız oxunur və avtomatik giriş edilir...</Text>
+            <Text>Your Telegram account is being read and you will be signed in automatically…</Text>
           </Card>
         </Overlay>
       )
@@ -82,8 +82,8 @@ export default function AuthModal() {
         <Card>
           <Logo alt="Venom Kazino" src="/logo.svg" />
           <Title>Venom Kazino</Title>
-          <Text>Telegram hesabı oxunmadı. Mini App-i birbaşa bot daxilindən yenidən açın.</Text>
-          <Button onClick={() => window.location.reload()}>Yenidən cəhd et</Button>
+          <Text>Telegram account data was not found. Please reopen the Mini App directly from the bot.</Text>
+          <Button onClick={() => window.location.reload()}>Try again</Button>
         </Card>
       </Overlay>
     )
@@ -94,8 +94,8 @@ export default function AuthModal() {
       <Card>
         <Logo alt="Venom Kazino" src="/logo.svg" />
         <Title>Venom Kazino</Title>
-        <Text>Bu sayt yalnız Telegram Mini App daxilində Telegram hesabı ilə avtomatik açılır.</Text>
-        <Button onClick={() => window.location.reload()}>Səhifəni yenilə</Button>
+        <Text>This site opens automatically with your Telegram account inside the Telegram Mini App.</Text>
+        <Button onClick={() => window.location.reload()}>Refresh page</Button>
       </Card>
     </Overlay>
   )
