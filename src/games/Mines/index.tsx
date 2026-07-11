@@ -5,9 +5,10 @@ import { GRID_SIZE, MINE_SELECT, PITCH_INCREASE_FACTOR, SOUND_EXPLODE, SOUND_FIN
 import { CellButton, Container, Container2, Grid, Level, Levels, StatusBar } from './styles'
 import { generateGrid, revealAllMines, revealGold } from './utils'
 import { useUserStore } from '../hooks/useUserStore'
+import { didPlayerWin } from '../../utils/houseEdge'
 
 function Mines() {
-  const { balance, withdrawBalance, addBalance } = useUserStore()
+  const { withdrawBalance, addBalance } = useUserStore()
   const sounds = useSound({
     tick: SOUND_TICK,
     win: SOUND_WIN,
@@ -40,7 +41,7 @@ function Mines() {
       const wager = level === 0 ? initialWager : previousBalance
       const multiplier = getMultiplierForLevel(level)
       const remainingCells = GRID_SIZE - level
-      const bet = Array.from({ length: remainingCells }, (_, i) => i < mines ? 0 : multiplier)
+      const bet = Array.from({ length: remainingCells }, (_, i) => (i < mines ? 0 : multiplier))
 
       const profit = wager * (multiplier - 1)
       cumProfit += profit
@@ -55,7 +56,16 @@ function Mines() {
   const gameFinished = remainingCells <= mines
   const canPlay = started && !loading && !gameFinished
 
-  const { wager, bet } = levels[currentLevel] ?? {}
+  const { wager } = levels[currentLevel] ?? {}
+
+  const stopLoopSounds = React.useCallback(() => {
+    sounds.sounds.tick.player.stop()
+    sounds.sounds.step.player.stop()
+  }, [sounds])
+
+  React.useEffect(() => {
+    return () => stopLoopSounds()
+  }, [stopLoopSounds])
 
   const start = () => {
     if (!withdrawBalance(initialWager, 'mines-start')) return
@@ -77,10 +87,11 @@ function Mines() {
     setLevel(0)
     setTotalGain(0)
     setStarted(false)
+    stopLoopSounds()
   }
 
   const play = async (cellIndex: number) => {
-    if (!wager || balance < wager) return
+    if (!wager) return
     setLoading(true)
     setSelected(cellIndex)
     try {
@@ -89,12 +100,10 @@ function Mines() {
       sounds.sounds.tick.player.loop = true
       sounds.play('tick')
 
-      const random = Math.random()
-      const isMine = random < mines / (GRID_SIZE - currentLevel)
+      const isSafe = didPlayerWin()
+      stopLoopSounds()
 
-      sounds.sounds.tick.player.stop()
-
-      if (isMine) {
+      if (!isSafe) {
         setStarted(false)
         setGrid(revealAllMines(grid, cellIndex, mines))
         sounds.play('explode')
@@ -112,14 +121,13 @@ function Mines() {
       if (nextLevel < GRID_SIZE - mines) {
         sounds.play('win', { playbackRate: Math.pow(PITCH_INCREASE_FACTOR, currentLevel) })
       } else {
-        sounds.play('win', { playbackRate: .9 })
+        sounds.play('win', { playbackRate: 0.9 })
         sounds.play('finish')
       }
     } finally {
       setLoading(false)
       setSelected(-1)
-      sounds.sounds.tick.player.stop()
-      sounds.sounds.step.player.stop()
+      stopLoopSounds()
     }
   }
 
@@ -137,10 +145,10 @@ function Mines() {
           </Levels>
           <StatusBar>
             <div>
-              <span>Minalar: {mines}</span>
+              <span>Mines: {mines}</span>
               {totalGain > 0 && (
                 <span>
-                  +{Math.round(totalGain)} ⭐ +{Math.round(totalGain / initialWager * 100 - 100)}%
+                  +{Math.round(totalGain)} ⭐ +{Math.round((totalGain / initialWager) * 100 - 100)}%
                 </span>
               )}
             </div>
@@ -156,11 +164,7 @@ function Mines() {
                     onClick={() => play(index)}
                     disabled={!canPlay || cell.status !== 'hidden'}
                   >
-                    {(cell.status === 'gold') && (
-                      <div>
-                        +{Math.round(cell.profit)} ⭐
-                      </div>
-                    )}
+                    {cell.status === 'gold' && <div>+{Math.round(cell.profit)} ⭐</div>}
                   </CellButton>
                 ))}
               </Grid>
@@ -172,20 +176,11 @@ function Mines() {
         {!started ? (
           <>
             <GambaUi.WagerInput value={initialWager} onChange={setInitialWager} />
-            <GambaUi.Select
-              options={MINE_SELECT}
-              value={mines}
-              onChange={setMines}
-              label={(mines) => <>{mines} mina</>}
-            />
-            <GambaUi.PlayButton onClick={start}>
-Başlat
-            </GambaUi.PlayButton>
+            <GambaUi.Select options={MINE_SELECT} value={mines} onChange={setMines} label={(value) => <>{value} mines</>} />
+            <GambaUi.PlayButton onClick={start}>Start</GambaUi.PlayButton>
           </>
         ) : (
-          <GambaUi.Button onClick={endGame}>
-            {totalGain > 0 ? 'Bitir' : 'Sıfırla'}
-          </GambaUi.Button>
+          <GambaUi.Button onClick={endGame}>{totalGain > 0 ? 'Cash out' : 'Reset'}</GambaUi.Button>
         )}
       </GambaUi.Portal>
     </>
