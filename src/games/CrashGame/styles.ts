@@ -114,7 +114,7 @@ export const CrashCurve = styled.div<{ $progress: number }>`
     left: 0;
     bottom: 0;
     width: ${({ $progress }) => `${Math.max(3, $progress * 100)}%`};
-    height: ${({ $progress }) => `${Math.max(3, Math.pow($progress, 1.45) * 100)}%`};
+    height: ${({ $progress }) => `${Math.max(3, Math.pow($progress, 1.3) * 100)}%`};
     border-top: 3px solid #31e981;
     border-right: 3px solid #31e981;
     border-radius: 0 22px 0 0;
@@ -132,7 +132,7 @@ export const CrashCurve = styled.div<{ $progress: number }>`
 export const MultiplierText = styled.div<{ $color?: string }>`
   font-size: clamp(38px, 10vw, 76px);
   color: ${({ $color }) => $color || '#fff'};
-  text-shadow: 0 0 20px rgba(255,255,255,0.45);
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.45);
   z-index: 2;
   font-family: monospace;
   font-weight: 800;
@@ -158,7 +158,7 @@ export const RoundInfo = styled.div`
   top: 16px;
   right: 16px;
   z-index: 3;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border-radius: 14px;
   background: rgba(7, 12, 24, 0.62);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -167,6 +167,7 @@ export const RoundInfo = styled.div`
   font-weight: 700;
   backdrop-filter: blur(14px);
   text-align: right;
+  line-height: 1.45;
 `
 
 export const Message = styled.div`
@@ -194,7 +195,7 @@ export const Rocket = styled.div`
   background-image: url(${rocketAnimation});
   background-size: contain;
   background-repeat: no-repeat;
-  transition: left 0.016s linear, bottom 0.016s linear, transform 0.016s linear;
+  transition: left 0.035s linear, bottom 0.035s linear, transform 0.035s linear;
   will-change: left, bottom, transform;
   z-index: 2;
 `
