@@ -130,12 +130,20 @@ function buildDisplayName({ firstName, lastName, username }) {
 }
 
 function sanitizeUserPayload(payload = {}) {
-  const telegramId = normalizeNumber(payload.telegramId, { min: 1, integerOnly: true, fallback: 0 });
-  const firstName = String(payload.firstName || payload.first_name || '').trim() || 'Telegram';
-  const lastName = String(payload.lastName || payload.last_name || '').trim() || undefined;
-  const username = String(payload.username || '').trim().replace(/^@/, '') || undefined;
-  const photoUrl = String(payload.photoUrl || payload.photo_url || '').trim() || undefined;
-  const languageCode = String(payload.languageCode || payload.language_code || '').trim() || undefined;
+  const rawTelegramId = payload.telegramId
+    ?? payload.telegram_id
+    ?? payload.id
+    ?? payload.userId
+    ?? payload.user_id
+    ?? payload.user?.id
+    ?? 0;
+
+  const telegramId = normalizeNumber(rawTelegramId, { min: 1, integerOnly: true, fallback: 0 });
+  const firstName = String(payload.firstName || payload.first_name || payload.user?.first_name || '').trim() || 'Telegram';
+  const lastName = String(payload.lastName || payload.last_name || payload.user?.last_name || '').trim() || undefined;
+  const username = String(payload.username || payload.user?.username || '').trim().replace(/^@/, '') || undefined;
+  const photoUrl = String(payload.photoUrl || payload.photo_url || payload.user?.photo_url || '').trim() || undefined;
+  const languageCode = String(payload.languageCode || payload.language_code || payload.user?.language_code || '').trim() || undefined;
 
   return {
     telegramId,
