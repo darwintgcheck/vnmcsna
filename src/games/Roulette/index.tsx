@@ -8,6 +8,7 @@ import { Table } from './Table'
 import { CHIPS, SOUND_LOSE, SOUND_PLAY, SOUND_WIN } from './constants'
 import { addResult, bet, clearChips, results, selectedChip, totalChipValue } from './signals'
 import { useUserStore } from '../hooks/useUserStore'
+import { didPlayerWin, pickRandom } from '../../utils/houseEdge'
 
 const Wrapper = styled.div`
   display: grid;
@@ -17,17 +18,14 @@ const Wrapper = styled.div`
   -webkit-user-select: none;
   color: white;
 `
+
 function Results() {
   const _results = computed(() => [...results.value].reverse())
   return (
     <StyledResults>
-      {_results.value.map((index, i) => {
-        return (
-          <div key={i}>
-            {index + 1}
-          </div>
-        )
-      })}
+      {_results.value.map((index, i) => (
+        <div key={i}>{index + 1}</div>
+      ))}
     </StyledResults>
   )
 }
@@ -43,21 +41,12 @@ function Stats() {
   return (
     <div style={{ textAlign: 'center', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
       <div>
-        {balanceExceeded ? (
-          <span style={{ color: '#ff0066' }}>
-            TOO HIGH
-          </span>
-        ) : (
-          <>
-            {wager}
-          </>
-        )}
+        {balanceExceeded ? <span style={{ color: '#ff0066' }}>TOO HIGH</span> : <>{wager}</>}
         <div>Wager</div>
       </div>
       <div>
         <div>
-          {maxPayout}
-          ({multiplier.toFixed(2)}x)
+          {maxPayout} ({multiplier.toFixed(2)}x)
         </div>
         <div>Potential win</div>
       </div>
@@ -66,7 +55,7 @@ function Stats() {
 }
 
 export default function Roulette() {
-  const { balance, updateBalance } = useUserStore()
+  const { balance, withdrawBalance, addBalance } = useUserStore()
 
   const sounds = useSound({
     win: SOUND_WIN,
@@ -75,25 +64,26 @@ export default function Roulette() {
   })
 
   const wager = totalChipValue.value
-  const multiplier = Math.max(...bet.value)
-  const maxPayout = multiplier * wager
   const balanceExceeded = wager > balance
 
   const play = async () => {
-    if (balance < wager) {
-      alert("Balans kifayət deyil!")
+    if (!withdrawBalance(wager, 'roulette-bet')) {
+      alert('Not enough balance!')
       return
     }
 
-    updateBalance(balance - wager)
     sounds.play('play')
 
-    const resultIndex = Math.floor(Math.random() * bet.value.length)
-    const payout = wager * bet.value[resultIndex]
+    const winningIndexes = bet.value.map((value, index) => ({ value, index })).filter((item) => item.value > 0)
+    const losingIndexes = bet.value.map((value, index) => ({ value, index })).filter((item) => item.value <= 0)
+    const chosen = didPlayerWin() ? pickRandom(winningIndexes) : pickRandom(losingIndexes)
+    const resultIndex = chosen.index
+    const payout = wager * chosen.value
+
     addResult(resultIndex)
 
     if (payout > 0) {
-      updateBalance(balance - wager + payout)
+      addBalance(payout, 'roulette-win')
       sounds.play('win')
     } else {
       sounds.play('lose')
@@ -115,17 +105,14 @@ export default function Roulette() {
         <GambaUi.Select
           options={CHIPS}
           value={selectedChip.value}
-          onChange={(value) => selectedChip.value = value}
+          onChange={(value) => (selectedChip.value = value)}
           label={(value) => (
             <>
               <Chip value={value} /> = {value}
             </>
           )}
         />
-        <GambaUi.Button
-          disabled={!wager}
-          onClick={clearChips}
-        >
+        <GambaUi.Button disabled={!wager} onClick={clearChips}>
           Clear
         </GambaUi.Button>
         <GambaUi.PlayButton disabled={!wager || balanceExceeded} onClick={play}>
