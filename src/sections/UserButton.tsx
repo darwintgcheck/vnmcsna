@@ -25,7 +25,7 @@ function UserModal() {
       >
         {/* Balans */}
         <div style={{ fontSize: "18px", fontWeight: "bold" }}>
-          ბალანსი: {user.balance} ₾
+          ბალანსი: {user.balance} ⭐
         </div>
 
         {/* İstifadəçi məlumatları */}
