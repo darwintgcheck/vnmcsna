@@ -9,46 +9,17 @@ import { useUserStore } from '../../hooks/useUserStore'
 import { GameSlider } from '../Dashboard/Dashboard'
 import { Container, Controls, IconButton, MetaControls, Screen, Splash } from './Game.styles'
 
-const ModeBadge = styled.div`
+const BalanceBadge = styled.div`
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
   font-size: 13px;
-  font-weight: 700;
-`
-
-const ModeGrid = styled.div`
-  width: min(100%, 460px);
-  padding: 12px 24px 24px;
-  display: grid;
-  gap: 12px;
-`
-
-const ModeButton = styled.button<{ $accent?: boolean }>`
-  width: 100%;
-  border: none;
-  border-radius: 18px;
-  padding: 18px;
-  cursor: pointer;
-  text-align: left;
-  background: ${({ $accent }) => ($accent ? 'linear-gradient(135deg, #8c62ff, #5ee7ff)' : 'rgba(255, 255, 255, 0.06)')};
-  color: ${({ $accent }) => ($accent ? '#05050b' : '#fff')};
-`
-
-const ModeTitle = styled.div`
-  font-size: 18px;
   font-weight: 800;
-  margin-bottom: 6px;
-`
-
-const ModeText = styled.div`
-  font-size: 14px;
-  line-height: 1.5;
-  opacity: 0.9;
+  width: fit-content;
 `
 
 function CustomError() {
@@ -66,7 +37,7 @@ function CustomRenderer() {
   const { game } = GambaUi.useGame()
   const [info, setInfo] = React.useState(false)
   const soundStore = useSoundStore()
-  const firstTimePlaying = useUserStore((state) => !state.currentUser || !state.currentUser._id ? false : !state.currentUser._id.includes(game.id))
+  const firstTimePlaying = useUserStore((state) => (!state.currentUser || !state.currentUser._id ? false : !state.currentUser._id.includes(game.id)))
   const [ready, setReady] = React.useState(false)
 
   React.useEffect(() => {
@@ -108,7 +79,7 @@ function CustomRenderer() {
           </MetaControls>
         </Screen>
         <Controls>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
             <GambaUi.PortalTarget target="controls" />
             <GambaUi.PortalTarget target="play" />
           </div>
@@ -121,16 +92,14 @@ function CustomRenderer() {
 export default function Game() {
   const { gameId } = useParams()
   const game = GAMES.find((x) => x.id === gameId)
-  const gameMode = useUserStore((state) => state.gameMode)
   const realBalance = useUserStore((state) => state.realBalance)
   const setGameMode = useUserStore((state) => state.setGameMode)
-  const [selectionOpen, setSelectionOpen] = React.useState(true)
 
   React.useEffect(() => {
-    if (gameId) {
-      setSelectionOpen(true)
+    if (game) {
+      setGameMode('real', game.id)
     }
-  }, [gameId])
+  }, [game?.id, setGameMode])
 
   if (!game) {
     return <h1>Oyun tapılmadı</h1>
@@ -138,35 +107,7 @@ export default function Game() {
 
   return (
     <>
-      {selectionOpen && (
-        <Modal>
-          <h1>{game.meta.name} üçün balans seçimi</h1>
-          <p>Hər oyuna daxil olduqda Demo və ya Real balans rejimini seçin.</p>
-          <ModeGrid>
-            <ModeButton
-              $accent
-              onClick={() => {
-                setGameMode('real', game.id)
-                setSelectionOpen(false)
-              }}
-            >
-              <ModeTitle>Real balans</ModeTitle>
-              <ModeText>Hazırkı hesab balansı ilə oynayın: {realBalance} ⭐</ModeText>
-            </ModeButton>
-            <ModeButton
-              onClick={() => {
-                setGameMode('demo', game.id)
-                setSelectionOpen(false)
-              }}
-            >
-              <ModeTitle>Demo balans</ModeTitle>
-              <ModeText>Bu oyun üçün 1000 ⭐ demo balans ilə oynayın.</ModeText>
-            </ModeButton>
-          </ModeGrid>
-        </Modal>
-      )}
-
-      <ModeBadge>Rejim: {gameMode === 'demo' ? 'Demo 1000 ⭐' : `Real ${realBalance} ⭐`}</ModeBadge>
+      <BalanceBadge>Telegram Stars balansı: {realBalance} ⭐</BalanceBadge>
 
       <GambaUi.Game game={game} errorFallback={<CustomError />}>
         <CustomRenderer />
