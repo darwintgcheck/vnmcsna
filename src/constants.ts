@@ -1,7 +1,7 @@
 import { PublicKey } from '@solana/web3.js'
 import { FAKE_TOKEN_MINT, TokenMeta } from 'gamba-react-ui-v2'
 
-export const SITE_NAME = 'Venom Kazino'
+export const SITE_NAME = '𝓚𝓲𝓷𝓰 𝓒𝓪𝓼𝓲𝓷𝓸'
 export const DEFAULT_BALANCE = 0
 export const RPC_ENDPOINT = import.meta.env.VITE_RPC_ENDPOINT ?? 'https://api.mainnet-beta.solana.com'
 export const PLATFORM_CREATOR_ADDRESS = new PublicKey('11111111111111111111111111111111')
@@ -28,7 +28,7 @@ export const TOS_HTML = `
   <p><b>1.</b> The platform works with your Telegram account.</p>
   <p><b>2.</b> Balance, deposits, and withdrawals are calculated in Stars.</p>
   <p><b>3.</b> Withdrawals apply an 8% fee.</p>
-  <p><b>4.</b> Transaction logs are stored on the server side.</p>
+  <p><b>4.</b> User balance, deposits, withdrawals, and payment logs are stored in MongoDB.</p>
 `
 export const TOKEN_METADATA_FETCHER = undefined
 export const ENABLE_LEADERBOARD = false
