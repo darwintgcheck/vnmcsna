@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import { SITE_NAME } from '../constants'
 import { getTelegramUnsafeUser, isTelegramMiniApp } from '../lib/telegram'
+import { useUserStore } from '../hooks/useUserStore'
 
 const Overlay = styled.div`
   position: fixed;
@@ -64,15 +65,42 @@ const Button = styled.button`
 export default function AuthModal() {
   const isMiniApp = isTelegramMiniApp()
   const tgUser = getTelegramUnsafeUser()
+  const loading = useUserStore((state) => state.loading)
+  const error = useUserStore((state) => state.error)
 
   if (isMiniApp) {
-    if (tgUser?.id) {
+    if (loading) {
       return (
         <Overlay>
           <Card>
             <Logo alt={SITE_NAME} src="/logo.svg" />
             <Title>{SITE_NAME}</Title>
             <Text>Your Telegram account is being read and you will be signed in automatically…</Text>
+          </Card>
+        </Overlay>
+      )
+    }
+
+    if (error) {
+      return (
+        <Overlay>
+          <Card>
+            <Logo alt={SITE_NAME} src="/logo.svg" />
+            <Title>{SITE_NAME}</Title>
+            <Text>{error}</Text>
+            <Button onClick={() => window.location.reload()}>Try again</Button>
+          </Card>
+        </Overlay>
+      )
+    }
+
+    if (tgUser?.id) {
+      return (
+        <Overlay>
+          <Card>
+            <Logo alt={SITE_NAME} src="/logo.svg" />
+            <Title>{SITE_NAME}</Title>
+            <Text>Your Telegram account is being prepared…</Text>
           </Card>
         </Overlay>
       )
